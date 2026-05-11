@@ -26,6 +26,8 @@ void setFlag(void) {
 
 void RadioLibWrapper::begin() {
   _radio->setPacketReceivedAction(setFlag);  // this is also SentComplete interrupt
+  _preamble_sf = getSpreadingFactor();
+  _radio->setPreambleLength(preambleLengthForSF(_preamble_sf)); // longer preamble for lower SF improves reliability
   state = STATE_IDLE;
 
   if (_board->getStartupReason() == BD_STARTUP_RX_PACKET) {  // received a LoRa packet (while in deep sleep)
@@ -168,10 +170,20 @@ void RadioLibWrapper::onSendFinished() {
   state = STATE_IDLE;
 }
 
+int16_t RadioLibWrapper::performChannelScan() {
+  return _radio->scanChannel();
+}
+
 bool RadioLibWrapper::isChannelActive() {
-  return _threshold == 0 
-          ? false    // interference check is disabled
-          : getCurrentRSSI() > _noise_floor + _threshold;
+  if (_threshold == 0) return false;    // interference check is disabled
+
+  int16_t result = performChannelScan();
+  // scanChannel() triggers DIO interrupt (CAD done) which sets STATE_INT_READY
+  // via setFlag() ISR. Clear it before restarting RX so recvRaw() doesn't
+  // try to read a non-existent packet and count a spurious recv error.
+  state = STATE_IDLE;
+  startRecv();
+  return result != RADIOLIB_CHANNEL_FREE;
 }
 
 float RadioLibWrapper::getLastRSSI() const {
