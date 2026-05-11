@@ -1,3 +1,21 @@
+
+## About MeshCore-Flow
+
+MeshCore-Flow is a specialized MeshCore fork focused on improving repeater operation and network usability in dense or heavily loaded meshes.
+The primary goal is to preserve reliable core functionality such as:
+
+- channel messaging
+- direct messages
+- repeater remote control
+- stable packet forwarding
+
+even under high network load or excessive flood traffic.
+
+This fork experiments with traffic shaping, probabilistic flood control and repeater-oriented optimizations intended to reduce unnecessary network congestion while maintaining overall mesh usability.
+MeshCore-Flow is intended primarily for repeater and infrastructure nodes operating in larger regional networks.
+
+This project was strongly inspired by the work done in the MeshCore-EVO fork, which helped explore approaches for improving mesh stability and reducing excessive flood traffic in large networks.
+
 ## About MeshCore
 
 MeshCore is a lightweight, portable C++ library that enables multi-hop packet routing for embedded projects using LoRa and other packet radios. It is designed for developers who want to create resilient, decentralized communication networks that work without the internet.

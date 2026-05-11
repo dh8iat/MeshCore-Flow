@@ -61,6 +61,11 @@ struct NodePrefs { // persisted to file
   uint8_t rx_boosted_gain; // power settings
   uint8_t path_hash_mode;   // which path mode to use when sending
   uint8_t loop_detect;
+  // Base forwarding probability for different flood packet types (0.0 = block, 1.0 = always forward)
+  float flood_response_base;
+  float flood_request_base;
+  float flood_anon_base;
+  float flood_advert_base;
 };
 
 class CommonCLICallbacks {
