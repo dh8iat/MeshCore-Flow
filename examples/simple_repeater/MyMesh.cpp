@@ -930,14 +930,14 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.bw = LORA_BW;
   _prefs.cr = LORA_CR;
   _prefs.tx_power_dbm = LORA_TX_POWER;
-  _prefs.advert_interval = 1;        // default to 2 minutes for NEW installs
-  _prefs.flood_advert_interval = 12; // 12 hours
+  _prefs.advert_interval = 240;        // default to 240 minutes for NEW installs
+  _prefs.flood_advert_interval = 0; // no flood advert
   _prefs.flood_max = 16;
   _prefs.interference_threshold = 1; // non-zero enables hardware CAD before TX
   // Default forwarding probability for different FLOOD packet types (0.0 = block, 1.0 = always forward)
   _prefs.flood_response_base = 0.8f;
-  _prefs.flood_request_base = 0.3f;
-  _prefs.flood_anon_base = 0.3f;
+  _prefs.flood_request_base = 0.1f;
+  _prefs.flood_anon_base = 0.1f;
   _prefs.flood_advert_base = 0.3f;
   // bridge defaults
   _prefs.bridge_enabled = 1;    // enabled
