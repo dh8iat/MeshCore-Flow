@@ -426,34 +426,67 @@ void MyMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_millis, ui
   }
 }
 
+// Probabilistic FLOOD forwarding helper.
+// Returns true if the packet should be dropped for the configured forwarding probability.
+static bool probabilisticDrop(mesh::RNG* rng, float base) {
+  if (base >= 1.0f) return false;
+  if (base <= 0.0f) return true;
+  return rng->nextInt(0, 10000) >= (uint32_t)(base * 10000.0f);
+}
+
 bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
-  if (packet->isRouteFlood() && packet->getPathHashCount() >= _prefs.flood_max) return false;
-  if (packet->isRouteFlood() && recv_pkt_region == NULL) {
-    MESH_DEBUG_PRINTLN("allowPacketForward: unknown transport code, or wildcard not allowed for FLOOD packet");
-    return false;
-  }
-  if (packet->isRouteFlood() && _prefs.loop_detect != LOOP_DETECT_OFF) {
-    const uint8_t* maximums;
-    if (_prefs.loop_detect == LOOP_DETECT_MINIMAL) {
-      maximums = max_loop_minimal;
-    } else if (_prefs.loop_detect == LOOP_DETECT_MODERATE) {
-      maximums = max_loop_moderate;
-    } else {
-      maximums = max_loop_strict;
-    }
-    if (isLooped(packet, maximums)) {
-      MESH_DEBUG_PRINTLN("allowPacketForward: FLOOD packet loop detected!");
+
+  if (packet->isRouteFlood()) {
+    uint8_t payload_type = packet->getPayloadType();
+
+    // With wildcard denyf, only group flood payloads are hard-blocked.
+    // Control payloads and adverts are governed by the per-type probabilistic settings below.
+    if (recv_pkt_region == NULL &&
+        (payload_type == PAYLOAD_TYPE_GRP_TXT || payload_type == PAYLOAD_TYPE_GRP_DATA)) {
+      MESH_DEBUG_PRINTLN("allowPacketForward: wildcard denyf blocked group FLOOD packet");
       return false;
     }
-  }
-  // Limit flood advert paket forwarding using a probabilistic reduction defined by P(h) = 0.308^(hops-1)
-  // https://github.com/meshcore-dev/MeshCore/issues/1223
-  if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->isRouteFlood()) {
-    double roll_dice = (double)rand() / RAND_MAX;
-    double forw_prob = pow(_prefs.flood_advert_base, packet->path_len - 1);
-    if (roll_dice > forw_prob)
-      return false;
+
+    // A base of 0.0 means hard block for that payload type. Otherwise the first relay hop
+    // is always forwarded; from hop 1 onward forwarding is probabilistic per configured base.
+    switch (payload_type) {
+      case PAYLOAD_TYPE_ADVERT:
+        if (_prefs.flood_advert_base <= 0.0f) return false;
+        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_advert_base)) return false;
+        break;
+      case PAYLOAD_TYPE_RESPONSE:
+        if (_prefs.flood_response_base <= 0.0f) return false;
+        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_response_base)) return false;
+        break;
+      case PAYLOAD_TYPE_REQ:
+        if (_prefs.flood_request_base <= 0.0f) return false;
+        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_request_base)) return false;
+        break;
+      case PAYLOAD_TYPE_ANON_REQ:
+        if (_prefs.flood_anon_base <= 0.0f) return false;
+        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_anon_base)) return false;
+        break;
+      default:
+        break;
+    }
+
+    if (packet->getPathHashCount() >= _prefs.flood_max) return false;
+
+    if (_prefs.loop_detect != LOOP_DETECT_OFF) {
+      const uint8_t* maximums;
+      if (_prefs.loop_detect == LOOP_DETECT_MINIMAL) {
+        maximums = max_loop_minimal;
+      } else if (_prefs.loop_detect == LOOP_DETECT_MODERATE) {
+        maximums = max_loop_moderate;
+      } else {
+        maximums = max_loop_strict;
+      }
+      if (isLooped(packet, maximums)) {
+        MESH_DEBUG_PRINTLN("allowPacketForward: FLOOD packet loop detected!");
+        return false;
+      }
+    }
   }
 
   return true;
@@ -559,9 +592,11 @@ bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
   if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
     recv_pkt_region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
   } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
+    // denyf-* policy for this build:
+    // hard-block only group flood payloads. ADVERT, REQ, RESPONSE and ANON_REQ
+    // are handled by probabilistic forwarding in allowPacketForward().
       if ((pkt->getPayloadType() == PAYLOAD_TYPE_GRP_TXT ||
-           pkt->getPayloadType() == PAYLOAD_TYPE_GRP_DATA ||
-           pkt->getPayloadType() == PAYLOAD_TYPE_ADVERT) &&
+           pkt->getPayloadType() == PAYLOAD_TYPE_GRP_DATA) &&
           region_map.getWildcard().flags & REGION_DENY_FLOOD) {
       recv_pkt_region = NULL;
     } else {
@@ -897,10 +932,13 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.tx_power_dbm = LORA_TX_POWER;
   _prefs.advert_interval = 1;        // default to 2 minutes for NEW installs
   _prefs.flood_advert_interval = 12; // 12 hours
-  _prefs.flood_advert_base = 0.308f;
-  _prefs.flood_max = 64;
+  _prefs.flood_max = 16;
   _prefs.interference_threshold = 1; // non-zero enables hardware CAD before TX
-
+  // Default forwarding probability for different FLOOD packet types (0.0 = block, 1.0 = always forward)
+  _prefs.flood_response_base = 0.8f;
+  _prefs.flood_request_base = 0.3f;
+  _prefs.flood_anon_base = 0.3f;
+  _prefs.flood_advert_base = 0.3f;
   // bridge defaults
   _prefs.bridge_enabled = 1;    // enabled
   _prefs.bridge_delay   = 500;  // milliseconds
