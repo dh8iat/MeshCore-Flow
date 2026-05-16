@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- [ ] examples/simple_repeater/MyMesh.h anpassen:
+        #define FIRMWARE_VERSION   "v1.15.0"
+        #define FIRMWARE_BUILD_DATE "24-Apr-2026"
 
 ### Added
 - [x]   set flood.txt.region 1
@@ -12,3 +15,6 @@
 
 ### Fixed
 - [x] hop Anzahl berücksichtigen für probabilistische foward regel
+
+## Released
+

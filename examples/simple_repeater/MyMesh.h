@@ -69,11 +69,11 @@ struct NeighbourInfo {
 };
 
 #ifndef FIRMWARE_BUILD_DATE
-  #define FIRMWARE_BUILD_DATE __DATE__ " " __TIME__
+  #define FIRMWARE_BUILD_DATE __DATE__
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.15.0 FLOW"
+  #define FIRMWARE_VERSION   "v1.15.0 FLOW 1.1"
 #endif
 
 #define FIRMWARE_ROLE "repeater"
