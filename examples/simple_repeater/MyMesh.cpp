@@ -463,19 +463,19 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
     switch (payload_type) {
       case PAYLOAD_TYPE_ADVERT:
         if (_prefs.flood_advert_base <= 0.0f) return false;
-        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_advert_base)) return false;
+        if (probabilisticDrop(getRNG(), pow(_prefs.flood_advert_base, exponent))) return false;
         break;
       case PAYLOAD_TYPE_RESPONSE:
         if (_prefs.flood_response_base <= 0.0f) return false;
-        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_response_base)) return false;
+        if (probabilisticDrop(getRNG(), pow(_prefs.flood_response_base, exponent))) return false;
         break;
       case PAYLOAD_TYPE_REQ:
         if (_prefs.flood_request_base <= 0.0f) return false;
-        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_request_base)) return false;
+        if (probabilisticDrop(getRNG(), pow(_prefs.flood_request_base, exponent))) return false;
         break;
       case PAYLOAD_TYPE_ANON_REQ:
         if (_prefs.flood_anon_base <= 0.0f) return false;
-        if (packet->getPathHashCount() > 0 && probabilisticDrop(getRNG(), _prefs.flood_anon_base)) return false;
+        if (probabilisticDrop(getRNG(), pow(_prefs.flood_anon_base, exponent))) return false;
         break;
       default:
         break;
