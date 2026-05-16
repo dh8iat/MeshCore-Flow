@@ -10,11 +10,18 @@
         set flood.txt.region 0
         get flood.txt.region
 
-        Default ist automatisch 0, weil _prefs im Konstruktor mit memset(&_prefs, 0, sizeof(_prefs)); initialisiert wird.
+        Default is 0 because `_prefs` is initialized with:
+        `memset(&_prefs, 0, sizeof(_prefs));`
+
 - [ ] cli_commands.md ergänzen
 
+### Changed
+
+- [x] TXT_MSG can now use the same region-scope handling as GRP_TXT
+
 ### Fixed
-- [x] hop Anzahl berücksichtigen für probabilistische foward regel
+
+- [x] Restored hop-count dependent probabilistic flooding
+- [x] Forwarding probability now decreases with increasing hop count
 
 ## Released
-
