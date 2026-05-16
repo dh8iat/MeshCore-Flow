@@ -447,8 +447,7 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
         payload_type == PAYLOAD_TYPE_GRP_TXT ||
         payload_type == PAYLOAD_TYPE_GRP_DATA ||
         (_prefs.flood_txt_region &&
-         payload_type == PAYLOAD_TYPE_TXT_MSG &&
-         packet->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD);
+         payload_type == PAYLOAD_TYPE_TXT_MSG);
 
     if (recv_pkt_region == NULL && region_limited_payload) {
       MESH_DEBUG_PRINTLN("allowPacketForward: wildcard denyf blocked regional FLOOD packet");
