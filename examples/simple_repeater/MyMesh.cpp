@@ -1,5 +1,6 @@
 #include "MyMesh.h"
 #include <algorithm>
+#include <math.h>
 
 /* ------------------------------ Config -------------------------------- */
 
@@ -440,16 +441,25 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (packet->isRouteFlood()) {
     uint8_t payload_type = packet->getPayloadType();
 
-    // With wildcard denyf, only group flood payloads are hard-blocked.
-    // Control payloads and adverts are governed by the per-type probabilistic settings below.
-    if (recv_pkt_region == NULL &&
-        (payload_type == PAYLOAD_TYPE_GRP_TXT || payload_type == PAYLOAD_TYPE_GRP_DATA)) {
-      MESH_DEBUG_PRINTLN("allowPacketForward: wildcard denyf blocked group FLOOD packet");
+    // With wildcard denyf, group flood payloads are hard-blocked.
+    // Optional: regional flood TXT_MSG can use the same region rules as group messages.
+    bool region_limited_payload =
+        payload_type == PAYLOAD_TYPE_GRP_TXT ||
+        payload_type == PAYLOAD_TYPE_GRP_DATA ||
+        (_prefs.flood_txt_region &&
+         payload_type == PAYLOAD_TYPE_TXT_MSG &&
+         packet->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD);
+
+    if (recv_pkt_region == NULL && region_limited_payload) {
+      MESH_DEBUG_PRINTLN("allowPacketForward: wildcard denyf blocked regional FLOOD packet");
       return false;
     }
 
-    // A base of 0.0 means hard block for that payload type. Otherwise the first relay hop
-    // is always forwarded; from hop 1 onward forwarding is probabilistic per configured base.
+    // A base of 0.0 means hard block for that payload type. Otherwise forwarding is
+    // reduced hop-dependently using P(h) = base^(hops-1) principle.
+    uint8_t hops = packet->getPathHashCount();
+    uint8_t exponent = hops > 0 ? hops - 1 : 0;
+
     switch (payload_type) {
       case PAYLOAD_TYPE_ADVERT:
         if (_prefs.flood_advert_base <= 0.0f) return false;
@@ -593,11 +603,14 @@ bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
     recv_pkt_region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
   } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
     // denyf-* policy for this build:
-    // hard-block only group flood payloads. ADVERT, REQ, RESPONSE and ANON_REQ
-    // are handled by probabilistic forwarding in allowPacketForward().
-      if ((pkt->getPayloadType() == PAYLOAD_TYPE_GRP_TXT ||
-           pkt->getPayloadType() == PAYLOAD_TYPE_GRP_DATA) &&
-          region_map.getWildcard().flags & REGION_DENY_FLOOD) {
+    // hard-block group flood payloads, plus TXT_MSG when enabled by CLI.
+    // ADVERT, REQ, RESPONSE and ANON_REQ are handled by probabilistic forwarding.
+    bool region_limited_payload =
+        pkt->getPayloadType() == PAYLOAD_TYPE_GRP_TXT ||
+        pkt->getPayloadType() == PAYLOAD_TYPE_GRP_DATA ||
+        (_prefs.flood_txt_region && pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG);
+
+    if (region_limited_payload && region_map.getWildcard().flags & REGION_DENY_FLOOD) {
       recv_pkt_region = NULL;
     } else {
       recv_pkt_region =  &region_map.getWildcard();

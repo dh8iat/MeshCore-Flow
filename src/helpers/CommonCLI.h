@@ -66,6 +66,7 @@ struct NodePrefs { // persisted to file
   float flood_request_base;
   float flood_anon_base;
   float flood_advert_base;
+  uint8_t flood_txt_region; // Treat flood TXT_MSG with a region like group flood messages.
 };
 
 class CommonCLICallbacks {

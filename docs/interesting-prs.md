@@ -88,12 +88,12 @@ Recommended defaults:
 
 # Ideas / Future Work
 
-- adaptive forwarding based on RSSI
-- congestion-aware FLOOD scaling
-- per-region forwarding profiles
-- routing quality metrics
 - dynamic repeater behavior
-- flood suppression based on airtime usage
+- Gastzugang einschränken
+- blacklist für benachbarte repeater
+- txt_msg behandeln wie grp_txt bzgl. region
+- 
+
 
 ---
 
@@ -111,3 +111,11 @@ Status:
   - hang at "Please wait..."
 - issue appears unrelated to probabilistic FLOOD logic
 - further investigation required
+
+---
+
+# Interesting PRs
+- PR2553: exponentielle Reduktion von Flood-Adverts per Hopcount, neue CLI-Option flood.advert.base. Sehr relevant, wenn meshcore-flow Airtime sparen soll.
+- PR2545: adaptiver Advert-Rate-Limiter gegen Fake-/Spam-Adverts, inkl. Stats-Befehl stats-advert-ratelimit. Für meshcore-flow fast direkt übernehmbar.
+- PR1374: Repeaters sollen nicht mehr automatisch Flood-Adverts senden, sondern auf Anfrage vollständige Metadaten liefern.
+- PR2341 zusammen mit PR2408: advert.max.hops     → Advertisements begrenzen, flood.path.max      → REQ/RESPONSE/PATH begrenzen

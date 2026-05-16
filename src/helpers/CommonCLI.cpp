@@ -93,7 +93,8 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 295
     file.read((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 299
     file.read((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 303
-    // next: 307
+    file.read((uint8_t *)&_prefs->flood_txt_region, sizeof(_prefs->flood_txt_region));            // 307
+    // next: 308
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -128,6 +129,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     _prefs->flood_response_base = constrain(_prefs->flood_response_base, 0.0f, 1.0f);
     _prefs->flood_request_base = constrain(_prefs->flood_request_base, 0.0f, 1.0f);
     _prefs->flood_anon_base = constrain(_prefs->flood_anon_base, 0.0f, 1.0f);
+    _prefs->flood_txt_region = constrain(_prefs->flood_txt_region, 0, 1); // boolean CLI option
 
     file.close();
   }
@@ -193,7 +195,8 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 295
     file.write((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 299
     file.write((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 303
-    // next: 307
+    file.write((uint8_t *)&_prefs->flood_txt_region, sizeof(_prefs->flood_txt_region));            // 307
+    // next: 308
     file.close();
   }
 }
@@ -619,6 +622,12 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     } else {
       strcpy(reply, "Error, max 64");
     }
+  } else if (memcmp(config, "flood.txt.region ", 17) == 0) {
+    // 1 = apply region rules to regional flood TXT_MSG, 0 = legacy behavior.
+    uint8_t enabled = atoi(&config[17]) ? 1 : 0;
+    _prefs->flood_txt_region = enabled;
+    savePrefs();
+    sprintf(reply, "OK - flood.txt.region=%d", (uint32_t)_prefs->flood_txt_region);
   } else if (memcmp(config, "flood.response.base ", 20) == 0) {
     float f = atof(&config[20]);
     if (f >= 0.0f && f <= 1.0f) {
@@ -832,6 +841,8 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     sprintf(reply, "> %s", StrHelper::ftoa(_prefs->tx_delay_factor));
   } else if (memcmp(config, "flood.max", 9) == 0) {
     sprintf(reply, "> %d", (uint32_t)_prefs->flood_max);
+  } else if (memcmp(config, "flood.txt.region", 16) == 0) {
+    sprintf(reply, "> %d", (uint32_t)_prefs->flood_txt_region);
   } else if (memcmp(config, "flood.response.base", 19) == 0) {
     sprintf(reply, "> %s", StrHelper::ftoa(_prefs->flood_response_base));
   } else if (memcmp(config, "flood.request.base", 18) == 0) {
