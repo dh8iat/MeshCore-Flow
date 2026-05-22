@@ -6,6 +6,8 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 - [Operational](#operational)
 - [Neighbors](#neighbors-repeater-only)
+- [Blacklist Filtering](#blacklist-filtering-repeater-only)
+- [Probabilistic FLOOD Forwarding](#probabilistic-flood-forwarding-repeater-only)
 - [Statistics](#statistics)
 - [Logging](#logging)
 - [Information](#info)
@@ -115,6 +117,150 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ---
 
+
+## Blacklist Filtering (Repeater Only)
+
+The repeater can drop forwarded FLOOD packets using three independent blacklists.
+
+- `blk.sender` supports 1-byte, 2-byte and 3-byte prefix values.
+- `blk.neighbor` supports 1-byte, 2-byte and 3-byte prefix values.
+- `blk.channel` uses 1-byte channel hashes.
+
+Values are entered as hexadecimal characters without a `0x` prefix. Matching is case-insensitive.
+
+For `blk.sender` and `blk.neighbor`, prefix matching is used:
+
+- `A1` matches `A1`, `A1B2` and `A1B2C3`
+- `A1B2` matches `A1B2` and `A1B2C3`
+- `A1B2C3` matches only `A1B2C3`
+
+### Sender blacklist
+**Usage:**
+- `blk.sender.put XX`
+- `blk.sender.put XXXX`
+- `blk.sender.put XXXXXX`
+- `blk.sender.remove XX`
+- `blk.sender.remove XXXX`
+- `blk.sender.remove XXXXXX`
+- `blk.sender.clear`
+- `blk.sender`
+
+**Description:** Blocks packets by original sender prefix when the sender is visible without decrypting the payload. This applies to packet types such as `TXT_MSG`, `REQ`, `RESPONSE`, `PATH`, `ADVERT` and `ANON_REQ`.
+
+**Examples:**
+```text
+blk.sender.put A1
+blk.sender.put A1B2
+blk.sender.put A1B2C3
+blk.sender.remove A1B2
+blk.sender
+```
+
+---
+
+### Neighbor blacklist
+**Usage:**
+- `blk.neighbor.put XX`
+- `blk.neighbor.put XXXX`
+- `blk.neighbor.put XXXXXX`
+- `blk.neighbor.remove XX`
+- `blk.neighbor.remove XXXX`
+- `blk.neighbor.remove XXXXXX`
+- `blk.neighbor.clear`
+- `blk.neighbor`
+
+**Description:** Blocks packets by the previous RF neighbor, represented by the last path hash entry before the repeater appends itself. A shorter entry also matches longer 2-byte or 3-byte path hashes with the same prefix.
+
+**Examples:**
+```text
+blk.neighbor.put 7F
+blk.neighbor.put 7F12
+blk.neighbor.put 7F1234
+blk.neighbor.remove 7F12
+blk.neighbor
+```
+
+---
+
+### Channel blacklist
+**Usage:**
+- `blk.channel.put XX`
+- `blk.channel.remove XX`
+- `blk.channel.clear`
+- `blk.channel`
+
+**Description:** Blocks group packets by the visible 1-byte group channel hash. This applies to `GRP_TXT` and `GRP_DATA`.
+
+**Examples:**
+```text
+blk.channel.put D9
+blk.channel.remove D9
+blk.channel
+```
+
+---
+
+### Blacklist stats
+**Usage:**
+- `blk.stats`
+- `blk.stats.clear`
+
+**Description:** Shows or clears only the RAM-only blacklist drop counters for `neighbor`, `sender` and `channel`. The counters are also reset on reboot.
+
+---
+
+## Probabilistic FLOOD Forwarding (Repeater Only)
+
+The repeater can reduce FLOOD forwarding probability for selected payload types. These settings are independent from the blacklist filters.
+
+| Command | Payload type | Default | Description |
+|---|---:|---:|---|
+| `set flood.advert.base <0.0..1.0>` | ADVERT | `0.308` | Forwarding probability for advert FLOOD packets |
+| `set flood.response.base <0.0..1.0>` | RESPONSE | `1.0` | Forwarding probability for response FLOOD packets |
+| `set flood.request.base <0.0..1.0>` | REQ | `1.0` | Forwarding probability for request FLOOD packets |
+| `set flood.anon.base <0.0..1.0>` | ANON_REQ | `1.0` | Forwarding probability for anonymous request FLOOD packets |
+
+Current values can be read with:
+
+```text
+get flood.advert.base
+get flood.response.base
+get flood.request.base
+get flood.anon.base
+```
+
+Examples:
+
+```text
+set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+```
+
+Value meaning:
+
+| Value | Behavior |
+|---:|---|
+| `0.0` | Do not forward this payload type |
+| `> 0.0` | First relay is allowed, further relays are forwarded probabilistically |
+| `1.0` | Always forward this payload type |
+
+The probability is applied hop-dependently. For example, a value of `0.5` allows the first relay and then forwards later hops with reduced probability.
+
+Recommended starting values:
+
+```text
+set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+```
+
+Keep `flood.response.base` relatively high if multi-hop replies, ACKs, PATH replies or remote login become unreliable.
+
+---
+
 ## Statistics
 
 ### Clear Stats
@@ -139,6 +285,11 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 ### Packet stats - Packet counters: Received, Sent
 **Usage:** `stats-packets`
+
+The JSON output also includes RAM-only blacklist drop counters:
+- `blk_neighbor`
+- `blk_sender`
+- `blk_channel`
 
 **Serial Only:** Yes
 
