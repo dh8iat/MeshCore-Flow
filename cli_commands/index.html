@@ -490,6 +490,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#blacklist-filtering-repeater-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blacklist Filtering (Repeater Only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Blacklist Filtering (Repeater Only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sender-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sender blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbor-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbor blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channel-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channel blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blacklist-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blacklist stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#probabilistic-flood-forwarding-repeater-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Probabilistic FLOOD Forwarding (Repeater Only)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#statistics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2043,6 +2115,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#blacklist-filtering-repeater-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blacklist Filtering (Repeater Only)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Blacklist Filtering (Repeater Only)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sender-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sender blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#neighbor-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neighbor blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#channel-blacklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channel blacklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blacklist-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blacklist stats
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#probabilistic-flood-forwarding-repeater-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Probabilistic FLOOD Forwarding (Repeater Only)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#statistics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3091,6 +3235,8 @@
 <ul>
 <li><a href="#operational">Operational</a></li>
 <li><a href="#neighbors-repeater-only">Neighbors</a></li>
+<li><a href="#blacklist-filtering-repeater-only">Blacklist Filtering</a></li>
+<li><a href="#probabilistic-flood-forwarding-repeater-only">Probabilistic FLOOD Forwarding</a></li>
 <li><a href="#statistics">Statistics</a></li>
 <li><a href="#logging">Logging</a></li>
 <li><a href="#info">Information</a></li>
@@ -3167,6 +3313,159 @@
 <p><strong>Usage:</strong> 
 - <code>discover.neighbors</code></p>
 <hr />
+<h2 id="blacklist-filtering-repeater-only">Blacklist Filtering (Repeater Only)</h2>
+<p>The repeater can drop forwarded FLOOD packets using three independent blacklists.</p>
+<ul>
+<li><code>blk.sender</code> supports 1-byte, 2-byte and 3-byte prefix values.</li>
+<li><code>blk.neighbor</code> supports 1-byte, 2-byte and 3-byte prefix values.</li>
+<li><code>blk.channel</code> uses 1-byte channel hashes.</li>
+</ul>
+<p>Values are entered as hexadecimal characters without a <code>0x</code> prefix. Matching is case-insensitive.</p>
+<p>For <code>blk.sender</code> and <code>blk.neighbor</code>, prefix matching is used:</p>
+<ul>
+<li><code>A1</code> matches <code>A1</code>, <code>A1B2</code> and <code>A1B2C3</code></li>
+<li><code>A1B2</code> matches <code>A1B2</code> and <code>A1B2C3</code></li>
+<li><code>A1B2C3</code> matches only <code>A1B2C3</code></li>
+</ul>
+<h3 id="sender-blacklist">Sender blacklist</h3>
+<p><strong>Usage:</strong>
+- <code>blk.sender.put XX</code>
+- <code>blk.sender.put XXXX</code>
+- <code>blk.sender.put XXXXXX</code>
+- <code>blk.sender.remove XX</code>
+- <code>blk.sender.remove XXXX</code>
+- <code>blk.sender.remove XXXXXX</code>
+- <code>blk.sender.clear</code>
+- <code>blk.sender</code></p>
+<p><strong>Description:</strong> Blocks packets by original sender prefix when the sender is visible without decrypting the payload. This applies to packet types such as <code>TXT_MSG</code>, <code>REQ</code>, <code>RESPONSE</code>, <code>PATH</code>, <code>ADVERT</code> and <code>ANON_REQ</code>.</p>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-text">blk.sender.put A1
+blk.sender.put A1B2
+blk.sender.put A1B2C3
+blk.sender.remove A1B2
+blk.sender
+</code></pre>
+<hr />
+<h3 id="neighbor-blacklist">Neighbor blacklist</h3>
+<p><strong>Usage:</strong>
+- <code>blk.neighbor.put XX</code>
+- <code>blk.neighbor.put XXXX</code>
+- <code>blk.neighbor.put XXXXXX</code>
+- <code>blk.neighbor.remove XX</code>
+- <code>blk.neighbor.remove XXXX</code>
+- <code>blk.neighbor.remove XXXXXX</code>
+- <code>blk.neighbor.clear</code>
+- <code>blk.neighbor</code></p>
+<p><strong>Description:</strong> Blocks packets by the previous RF neighbor, represented by the last path hash entry before the repeater appends itself. A shorter entry also matches longer 2-byte or 3-byte path hashes with the same prefix.</p>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-text">blk.neighbor.put 7F
+blk.neighbor.put 7F12
+blk.neighbor.put 7F1234
+blk.neighbor.remove 7F12
+blk.neighbor
+</code></pre>
+<hr />
+<h3 id="channel-blacklist">Channel blacklist</h3>
+<p><strong>Usage:</strong>
+- <code>blk.channel.put XX</code>
+- <code>blk.channel.remove XX</code>
+- <code>blk.channel.clear</code>
+- <code>blk.channel</code></p>
+<p><strong>Description:</strong> Blocks group packets by the visible 1-byte group channel hash. This applies to <code>GRP_TXT</code> and <code>GRP_DATA</code>.</p>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-text">blk.channel.put D9
+blk.channel.remove D9
+blk.channel
+</code></pre>
+<hr />
+<h3 id="blacklist-stats">Blacklist stats</h3>
+<p><strong>Usage:</strong>
+- <code>blk.stats</code>
+- <code>blk.stats.clear</code></p>
+<p><strong>Description:</strong> Shows or clears only the RAM-only blacklist drop counters for <code>neighbor</code>, <code>sender</code> and <code>channel</code>. The counters are also reset on reboot.</p>
+<hr />
+<h2 id="probabilistic-flood-forwarding-repeater-only">Probabilistic FLOOD Forwarding (Repeater Only)</h2>
+<p>The repeater can reduce FLOOD forwarding probability for selected payload types. These settings are independent from the blacklist filters.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th style="text-align: right;">Payload type</th>
+<th style="text-align: right;">Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set flood.advert.base &lt;0.0..1.0&gt;</code></td>
+<td style="text-align: right;">ADVERT</td>
+<td style="text-align: right;"><code>0.308</code></td>
+<td>Forwarding probability for advert FLOOD packets</td>
+</tr>
+<tr>
+<td><code>set flood.response.base &lt;0.0..1.0&gt;</code></td>
+<td style="text-align: right;">RESPONSE</td>
+<td style="text-align: right;"><code>1.0</code></td>
+<td>Forwarding probability for response FLOOD packets</td>
+</tr>
+<tr>
+<td><code>set flood.request.base &lt;0.0..1.0&gt;</code></td>
+<td style="text-align: right;">REQ</td>
+<td style="text-align: right;"><code>1.0</code></td>
+<td>Forwarding probability for request FLOOD packets</td>
+</tr>
+<tr>
+<td><code>set flood.anon.base &lt;0.0..1.0&gt;</code></td>
+<td style="text-align: right;">ANON_REQ</td>
+<td style="text-align: right;"><code>1.0</code></td>
+<td>Forwarding probability for anonymous request FLOOD packets</td>
+</tr>
+</tbody>
+</table>
+<p>Current values can be read with:</p>
+<pre><code class="language-text">get flood.advert.base
+get flood.response.base
+get flood.request.base
+get flood.anon.base
+</code></pre>
+<p>Examples:</p>
+<pre><code class="language-text">set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+</code></pre>
+<p>Value meaning:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;"><code>0.0</code></td>
+<td>Do not forward this payload type</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>&gt; 0.0</code></td>
+<td>First relay is allowed, further relays are forwarded probabilistically</td>
+</tr>
+<tr>
+<td style="text-align: right;"><code>1.0</code></td>
+<td>Always forward this payload type</td>
+</tr>
+</tbody>
+</table>
+<p>The probability is applied hop-dependently. For example, a value of <code>0.5</code> allows the first relay and then forwards later hops with reduced probability.</p>
+<p>Recommended starting values:</p>
+<pre><code class="language-text">set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+</code></pre>
+<p>Keep <code>flood.response.base</code> relatively high if multi-hop replies, ACKs, PATH replies or remote login become unreliable.</p>
+<hr />
 <h2 id="statistics">Statistics</h2>
 <h3 id="clear-stats">Clear Stats</h3>
 <p><strong>Usage:</strong> <code>clear stats</code></p>
@@ -3182,6 +3481,10 @@
 <hr />
 <h3 id="packet-stats-packet-counters-received-sent">Packet stats - Packet counters: Received, Sent</h3>
 <p><strong>Usage:</strong> <code>stats-packets</code></p>
+<p>The JSON output also includes RAM-only blacklist drop counters:
+- <code>blk_neighbor</code>
+- <code>blk_sender</code>
+- <code>blk_channel</code></p>
 <p><strong>Serial Only:</strong> Yes</p>
 <hr />
 <h2 id="logging">Logging</h2>
