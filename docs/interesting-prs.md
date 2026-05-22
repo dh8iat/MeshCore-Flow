@@ -91,8 +91,8 @@ Recommended defaults:
 - dynamic repeater behavior
 - Gastzugang einschränken
 - blacklist für benachbarte repeater
-- txt_msg behandeln wie grp_txt bzgl. region
-- 
+- blacklist für #Channels
+- blacklist für Absender
 
 
 ---
@@ -119,3 +119,4 @@ Status:
 - PR2545: adaptiver Advert-Rate-Limiter gegen Fake-/Spam-Adverts, inkl. Stats-Befehl stats-advert-ratelimit. Für meshcore-flow fast direkt übernehmbar.
 - PR1374: Repeaters sollen nicht mehr automatisch Flood-Adverts senden, sondern auf Anfrage vollständige Metadaten liefern.
 - PR2341 zusammen mit PR2408: advert.max.hops     → Advertisements begrenzen, flood.path.max      → REQ/RESPONSE/PATH begrenzen
+- PR2569 

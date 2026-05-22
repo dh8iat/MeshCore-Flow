@@ -27,6 +27,83 @@ static bool isValidName(const char *n) {
   return true;
 }
 
+
+static bool parseOneByteHex(const char* hex, uint8_t* value) {
+  // Blacklist CLI values are intentionally restricted to exactly one byte.
+  // Do not accept a 0x prefix here; users should enter values like "A1".
+  if (strlen(hex) != 2) return false;
+  return mesh::Utils::fromHex(value, 1, hex);
+}
+
+static void setBlacklistBit(uint8_t* bitset, uint8_t value) {
+  bitset[value >> 3] |= (1 << (value & 7));
+}
+
+static void clearBlacklistBit(uint8_t* bitset, uint8_t value) {
+  bitset[value >> 3] &= ~(1 << (value & 7));
+}
+
+static bool handleBlacklistCommand(const char* command, const char* name, uint8_t* bitset, char* reply, bool* changed) {
+  char prefix[24];
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.put ", name);
+  size_t prefix_len = strlen(prefix);
+  if (strncmp(command, prefix, prefix_len) == 0) {
+    uint8_t value;
+    if (!parseOneByteHex(&command[prefix_len], &value)) {
+      sprintf(reply, "ERR: use blk.%s.put XX", name);
+      return true;
+    }
+    setBlacklistBit(bitset, value);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s put %02X", name, (uint32_t)value);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.remove ", name);
+  prefix_len = strlen(prefix);
+  if (strncmp(command, prefix, prefix_len) == 0) {
+    uint8_t value;
+    if (!parseOneByteHex(&command[prefix_len], &value)) {
+      sprintf(reply, "ERR: use blk.%s.remove XX", name);
+      return true;
+    }
+    clearBlacklistBit(bitset, value);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s removed %02X", name, (uint32_t)value);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.clear", name);
+  if (strcmp(command, prefix) == 0) {
+    memset(bitset, 0, 32);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s cleared", name);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s", name);
+  if (strcmp(command, prefix) == 0) {
+    char* dp = reply;
+    *dp++ = '>';
+    *dp++ = ' ';
+    bool first = true;
+    for (uint16_t b = 0; b < 256 && dp - reply < 155; b++) {
+      if (bitset[b >> 3] & (1 << (b & 7))) {
+        if (!first) *dp++ = ',';
+        sprintf(dp, "%02X", (uint32_t)b);
+        dp += 2;
+        first = false;
+      }
+    }
+    if (first) *dp++ = '-';
+    *dp = 0;
+    return true;
+  }
+
+  return false;
+}
+
 void CommonCLI::loadPrefs(FILESYSTEM* fs) {
   if (fs->exists("/com_prefs")) {
     loadPrefsInt(fs, "/com_prefs");   // new filename
@@ -94,7 +171,10 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 299
     file.read((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 303
     file.read((uint8_t *)&_prefs->flood_txt_region, sizeof(_prefs->flood_txt_region));            // 307
-    // next: 308
+    file.read((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                      // 308 (was experimental path blacklist)
+    file.read((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                          // 340
+    file.read((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                        // 372
+    // next: 404
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -196,7 +276,10 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 299
     file.write((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 303
     file.write((uint8_t *)&_prefs->flood_txt_region, sizeof(_prefs->flood_txt_region));            // 307
-    // next: 308
+    file.write((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                     // 308
+    file.write((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                         // 340
+    file.write((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                       // 372
+    // next: 404
     file.close();
   }
 }
@@ -224,6 +307,7 @@ uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+  bool changed = false;
     if (memcmp(command, "poweroff", 8) == 0 || memcmp(command, "shutdown", 8) == 0) {
       _board->powerOff();  // doesn't return
     } else if (memcmp(command, "reboot", 6) == 0) {
@@ -282,6 +366,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       } else {
         strcpy(reply, "ERR: bad pubkey");
       }
+    } else if (strcmp(command, "blk.stats") == 0) {
+      _callbacks->formatBlacklistStatsReply(reply);
+    } else if (strcmp(command, "blk.stats.clear") == 0) {
+      _callbacks->clearBlacklistStats();
+      strcpy(reply, "OK - blk.stats cleared");
+    } else if (handleBlacklistCommand(command, "sender", _prefs->blk_sender, reply, &changed)) {
+      if (changed) savePrefs();
+    } else if (handleBlacklistCommand(command, "neighbor", _prefs->blk_neighbor, reply, &changed)) {
+      if (changed) savePrefs();
+    } else if (handleBlacklistCommand(command, "channel", _prefs->blk_channel, reply, &changed)) {
+      if (changed) savePrefs();
     } else if (memcmp(command, "tempradio ", 10) == 0) {
       strcpy(tmp, &command[10]);
       const char *parts[5];

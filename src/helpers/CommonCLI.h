@@ -67,6 +67,13 @@ struct NodePrefs { // persisted to file
   float flood_anon_base;
   float flood_advert_base;
   uint8_t flood_txt_region; // Treat flood TXT_MSG with a region like group flood messages.
+  // Bitsets for lightweight repeater forwarding blacklists.
+  // Each list accepts exactly one-byte hex values in the CLI. For sender and
+  // neighbor checks this byte is used as a prefix, so it also matches longer
+  // 2-byte and 3-byte hashes that start with the same byte.
+  uint8_t blk_sender[32];   // original sender prefix, when visible in the payload
+  uint8_t blk_neighbor[32]; // previous RF neighbor / last path hop prefix
+  uint8_t blk_channel[32];  // group channel hash
 };
 
 class CommonCLICallbacks {
@@ -90,6 +97,8 @@ public:
   virtual void formatStatsReply(char *reply) = 0;
   virtual void formatRadioStatsReply(char *reply) = 0;
   virtual void formatPacketStatsReply(char *reply) = 0;
+  virtual void formatBlacklistStatsReply(char *reply) { strcpy(reply, "ERR: not supported"); }
+  virtual void clearBlacklistStats() {}
   virtual mesh::LocalIdentity& getSelfId() = 0;
   virtual void saveIdentity(const mesh::LocalIdentity& new_id) = 0;
   virtual void clearStats() = 0;

@@ -237,6 +237,9 @@ int MyMesh::handleRequest(ClientInfo *sender, uint32_t sender_timestamp, uint8_t
     stats.n_flood_dups = ((SimpleMeshTables *)getTables())->getNumFloodDups();
     stats.total_rx_air_time_secs = getReceiveAirTime() / 1000;
     stats.n_recv_errors = radio_driver.getPacketsRecvErrors();
+    stats.n_blk_neighbor = n_blk_neighbor;
+    stats.n_blk_sender = n_blk_sender;
+    stats.n_blk_channel = n_blk_channel;
     memcpy(&reply_data[4], &stats, sizeof(stats));
 
     return 4 + sizeof(stats); //  reply_len
@@ -414,6 +417,62 @@ bool MyMesh::isLooped(const mesh::Packet* packet, const uint8_t max_counters[]) 
   return n >= max_counters[hash_size];
 }
 
+bool MyMesh::isBlacklistBitSet(const uint8_t* bitset, uint8_t value) const {
+  return (bitset[value >> 3] & (1 << (value & 7))) != 0;
+}
+
+bool MyMesh::isNeighborBlacklisted(const mesh::Packet* packet, uint8_t* matched) const {
+  // Neighbor blacklist checks the previous RF sender for FLOOD packets. MeshCore
+  // stores that as the last path hash entry before this repeater appends itself.
+  if (!packet->isRouteFlood()) return false;
+  uint8_t hash_count = packet->getPathHashCount();
+  if (hash_count == 0) return false;
+
+  uint8_t hash_size = packet->getPathHashSize();
+  uint8_t value = packet->path[(hash_count - 1) * hash_size];
+  if (!isBlacklistBitSet(_prefs.blk_neighbor, value)) return false;
+  if (matched) *matched = value;
+  return true;
+}
+
+bool MyMesh::isSenderBlacklisted(const mesh::Packet* packet, uint8_t* matched) const {
+  // Only some payload types expose an original sender prefix without decryption.
+  // This check intentionally uses one byte as a prefix, matching the CLI model.
+  uint8_t payload_type = packet->getPayloadType();
+  uint8_t value = 0;
+  bool have_sender = false;
+
+  if ((payload_type == PAYLOAD_TYPE_TXT_MSG ||
+       payload_type == PAYLOAD_TYPE_REQ ||
+       payload_type == PAYLOAD_TYPE_RESPONSE ||
+       payload_type == PAYLOAD_TYPE_PATH) && packet->payload_len >= 2) {
+    value = packet->payload[1];
+    have_sender = true;
+  } else if (payload_type == PAYLOAD_TYPE_ADVERT && packet->payload_len >= 1) {
+    value = packet->payload[0];
+    have_sender = true;
+  } else if (payload_type == PAYLOAD_TYPE_ANON_REQ && packet->payload_len >= 1 + PUB_KEY_SIZE) {
+    value = packet->payload[1];
+    have_sender = true;
+  }
+
+  if (!have_sender || !isBlacklistBitSet(_prefs.blk_sender, value)) return false;
+  if (matched) *matched = value;
+  return true;
+}
+
+bool MyMesh::isChannelBlacklisted(const mesh::Packet* packet, uint8_t* matched) const {
+  // Group packets expose the channel hash outside the encrypted payload.
+  uint8_t payload_type = packet->getPayloadType();
+  if (!(payload_type == PAYLOAD_TYPE_GRP_TXT || payload_type == PAYLOAD_TYPE_GRP_DATA)) return false;
+  if (packet->payload_len < 1) return false;
+
+  uint8_t value = packet->payload[0];
+  if (!isBlacklistBitSet(_prefs.blk_channel, value)) return false;
+  if (matched) *matched = value;
+  return true;
+}
+
 void MyMesh::sendFloodReply(mesh::Packet* packet, unsigned long delay_millis, uint8_t path_hash_size) {
   if (recv_pkt_region && !recv_pkt_region->isWildcard()) {  // if _request_ packet scope is known, send reply with same scope
     TransportKey scope;
@@ -439,6 +498,23 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
 
   if (packet->isRouteFlood()) {
+    uint8_t blocked = 0;
+    if (isNeighborBlacklisted(packet, &blocked)) {
+      n_blk_neighbor++;
+      MESH_DEBUG_PRINTLN("allowPacketForward: blocked FLOOD packet from blacklisted neighbor %02X", (uint32_t)blocked);
+      return false;
+    }
+    if (isSenderBlacklisted(packet, &blocked)) {
+      n_blk_sender++;
+      MESH_DEBUG_PRINTLN("allowPacketForward: blocked FLOOD packet from blacklisted sender %02X", (uint32_t)blocked);
+      return false;
+    }
+    if (isChannelBlacklisted(packet, &blocked)) {
+      n_blk_channel++;
+      MESH_DEBUG_PRINTLN("allowPacketForward: blocked FLOOD packet from blacklisted channel %02X", (uint32_t)blocked);
+      return false;
+    }
+
     uint8_t payload_type = packet->getPayloadType();
 
     // With wildcard denyf, group flood payloads are hard-blocked.
@@ -917,6 +993,9 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
 {
   last_millis = 0;
   uptime_millis = 0;
+  n_blk_neighbor = 0;
+  n_blk_sender = 0;
+  n_blk_channel = 0;
   next_local_advert = next_flood_advert = 0;
   dirty_contacts_expiry = 0;
   set_radio_at = revert_radio_at = 0;
@@ -1207,6 +1286,25 @@ void MyMesh::formatRadioStatsReply(char *reply) {
 void MyMesh::formatPacketStatsReply(char *reply) {
   StatsFormatHelper::formatPacketStats(reply, radio_driver, getNumSentFlood(), getNumSentDirect(), 
                                        getNumRecvFlood(), getNumRecvDirect());
+  // Append RAM-only blacklist counters to the JSON packet statistics.
+  char* end = reply + strlen(reply);
+  if (end > reply && *(end - 1) == '}') {
+    sprintf(end - 1, ",\"blk_neighbor\":%u,\"blk_sender\":%u,\"blk_channel\":%u}",
+            n_blk_neighbor, n_blk_sender, n_blk_channel);
+  }
+}
+
+void MyMesh::formatBlacklistStatsReply(char *reply) {
+  // These counters are RAM-only and are reset on reboot or by blk.stats.clear.
+  sprintf(reply, "> Blacklist stats:\nneighbor: %u\nsender: %u\nchannel: %u",
+          n_blk_neighbor, n_blk_sender, n_blk_channel);
+}
+
+void MyMesh::clearBlacklistStats() {
+  // Clear only the blacklist counters, not the radio or packet statistics.
+  n_blk_neighbor = 0;
+  n_blk_sender = 0;
+  n_blk_channel = 0;
 }
 
 void MyMesh::saveIdentity(const mesh::LocalIdentity &new_id) {
@@ -1226,6 +1324,9 @@ void MyMesh::clearStats() {
   radio_driver.resetStats();
   resetStats();
   ((SimpleMeshTables *)getTables())->resetStats();
+  n_blk_neighbor = 0;
+  n_blk_sender = 0;
+  n_blk_channel = 0;
 }
 
 void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply) {
