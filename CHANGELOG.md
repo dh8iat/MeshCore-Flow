@@ -2,23 +2,16 @@
 
 ## Unreleased
 
-- [ ] examples/simple_repeater/MyMesh.h anpassen:
-      #define FIRMWARE_VERSION   "v1.15.0"
-      #define FIRMWARE_BUILD_DATE "24-Apr-2026"
+## Released
 
-- [ ] cli_commands.md ergänzen
+### v1.15.0-Flow-v1.3
+
 #### Added
 
 - Added repeater forwarding blacklists for sender prefix, RF neighbor prefix and group channel hash.
 - Added CLI commands `blk.sender.*`, `blk.neighbor.*` and `blk.channel.*` using MeshCore-style `put`, `remove` and `clear` verbs.
 - Added RAM-only packet statistics counters for blacklist drops: `blk_neighbor`, `blk_sender` and `blk_channel`.
 - Added CLI commands `blk.stats` and `blk.stats.clear` to display and reset only the RAM-only blacklist drop counters.
-
-#### Changed
-
-- Replaced the earlier experimental `path.blacklist` CLI with `blk.neighbor` for clearer semantics.
-
-## Released
 
 ### v1.15.0-Flow-v1.2
 
