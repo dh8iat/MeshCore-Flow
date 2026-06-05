@@ -8,5 +8,4 @@
 - Added RAM-only blacklist drop counters and CLI commands `blk.stats` / `blk.stats.clear`.
 - Added hop-dependent probabilistic forwarding for `ADVERT`, `RESPONSE`, `REQ` and `ANON_REQ` FLOOD payloads.
 - Added CLI documentation for blacklist filtering and probabilistic FLOOD forwarding.
-
-
+- MAX_NEIGHBOURS=100 für HELTEC V4
