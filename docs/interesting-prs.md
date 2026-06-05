@@ -88,11 +88,8 @@ Recommended defaults:
 
 # Ideas / Future Work
 
-- dynamic repeater behavior
 - Gastzugang einschränken
-- blacklist für benachbarte repeater
-- blacklist für #Channels
-- blacklist für Absender
+- blacklist für Absender von grp_txt
 
 
 ---

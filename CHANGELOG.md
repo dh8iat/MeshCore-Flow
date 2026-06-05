@@ -1,6 +1,18 @@
 # Changelog
 
 ## Unreleased
+#### Changed
+
+#### Repeater neighbour table size increased
+
+The maximum neighbour table size has been increased from **50** to **100** entries for the following repeater targets:
+
+* Heltec V4
+* SenseCAP Solar
+
+This change allows repeaters in dense networks to retain information about more neighbouring nodes before older entries are replaced.
+
+No changes were made to neighbour discovery, sorting, or reporting logic. The update only increases the available neighbour table capacity.
 
 ## Released
 
