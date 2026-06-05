@@ -19,6 +19,83 @@ static uint32_t _atoi(const char* sp) {
   return n;
 }
 
+
+static bool parseOneByteHex(const char* hex, uint8_t* value) {
+  // Blacklist CLI values are intentionally restricted to exactly one byte.
+  // Do not accept a 0x prefix here; users should enter values like "A1".
+  if (strlen(hex) != 2) return false;
+  return mesh::Utils::fromHex(value, 1, hex);
+}
+
+static void setBlacklistBit(uint8_t* bitset, uint8_t value) {
+  bitset[value >> 3] |= (1 << (value & 7));
+}
+
+static void clearBlacklistBit(uint8_t* bitset, uint8_t value) {
+  bitset[value >> 3] &= ~(1 << (value & 7));
+}
+
+static bool handleBlacklistCommand(const char* command, const char* name, uint8_t* bitset, char* reply, bool* changed) {
+  char prefix[24];
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.put ", name);
+  size_t prefix_len = strlen(prefix);
+  if (strncmp(command, prefix, prefix_len) == 0) {
+    uint8_t value;
+    if (!parseOneByteHex(&command[prefix_len], &value)) {
+      sprintf(reply, "ERR: use blk.%s.put XX", name);
+      return true;
+    }
+    setBlacklistBit(bitset, value);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s put %02X", name, (uint32_t)value);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.remove ", name);
+  prefix_len = strlen(prefix);
+  if (strncmp(command, prefix, prefix_len) == 0) {
+    uint8_t value;
+    if (!parseOneByteHex(&command[prefix_len], &value)) {
+      sprintf(reply, "ERR: use blk.%s.remove XX", name);
+      return true;
+    }
+    clearBlacklistBit(bitset, value);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s removed %02X", name, (uint32_t)value);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s.clear", name);
+  if (strcmp(command, prefix) == 0) {
+    memset(bitset, 0, 32);
+    if (changed) *changed = true;
+    sprintf(reply, "OK - blk.%s cleared", name);
+    return true;
+  }
+
+  snprintf(prefix, sizeof(prefix), "blk.%s", name);
+  if (strcmp(command, prefix) == 0) {
+    char* dp = reply;
+    *dp++ = '>';
+    *dp++ = ' ';
+    bool first = true;
+    for (uint16_t b = 0; b < 256 && dp - reply < 155; b++) {
+      if (bitset[b >> 3] & (1 << (b & 7))) {
+        if (!first) *dp++ = ',';
+        sprintf(dp, "%02X", (uint32_t)b);
+        dp += 2;
+        first = false;
+      }
+    }
+    if (first) *dp++ = '-';
+    *dp = 0;
+    return true;
+  }
+
+  return false;
+}
+
 static bool isValidName(const char *n) {
   while (*n) {
     if (*n == '[' || *n == ']' || *n == '\\' || *n == ':' || *n == ',' || *n == '?' || *n == '*') return false;
@@ -90,7 +167,15 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
     file.read((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));              // 290
     file.read((uint8_t *)&_prefs->flood_max_unscoped, sizeof(_prefs->flood_max_unscoped));   // 291
-    // next: 292
+    file.read((uint8_t *)&_prefs->flood_advert_base, sizeof(_prefs->flood_advert_base));           // 292
+    file.read((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 296
+    file.read((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 300
+    file.read((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 304
+    file.read((uint8_t *)&_prefs->reserved_308, sizeof(_prefs->reserved_308));                    // 308
+    file.read((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                      // 309
+    file.read((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                          // 341
+    file.read((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                        // 373
+    // next: 405
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -120,6 +205,10 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
 
     // sanitise settings
     _prefs->rx_boosted_gain = constrain(_prefs->rx_boosted_gain, 0, 1); // boolean
+    _prefs->flood_advert_base = constrain(_prefs->flood_advert_base, 0.0f, 1.0f);
+    _prefs->flood_response_base = constrain(_prefs->flood_response_base, 0.0f, 1.0f);
+    _prefs->flood_request_base = constrain(_prefs->flood_request_base, 0.0f, 1.0f);
+    _prefs->flood_anon_base = constrain(_prefs->flood_anon_base, 0.0f, 1.0f);
 
     file.close();
   }
@@ -182,7 +271,15 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
     file.write((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));              // 290
     file.write((uint8_t *)&_prefs->flood_max_unscoped, sizeof(_prefs->flood_max_unscoped));   // 291
-    // next: 292
+    file.write((uint8_t *)&_prefs->flood_advert_base, sizeof(_prefs->flood_advert_base));          // 292
+    file.write((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 296
+    file.write((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 300
+    file.write((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 304
+    file.write((uint8_t *)&_prefs->reserved_308, sizeof(_prefs->reserved_308));                    // 308
+    file.write((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                     // 309
+    file.write((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                         // 341
+    file.write((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                       // 373
+    // next: 405
 
     file.close();
   }
@@ -211,6 +308,7 @@ uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
 }
 
 void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* reply) {
+  bool changed = false;
     if (memcmp(command, "poweroff", 8) == 0 || memcmp(command, "shutdown", 8) == 0) {
       _board->powerOff();  // doesn't return
     } else if (memcmp(command, "reboot", 6) == 0) {
@@ -269,6 +367,17 @@ void CommonCLI::handleCommand(uint32_t sender_timestamp, char* command, char* re
       } else {
         strcpy(reply, "ERR: bad pubkey");
       }
+    } else if (strcmp(command, "blk.stats") == 0) {
+      _callbacks->formatBlacklistStatsReply(reply);
+    } else if (strcmp(command, "blk.stats.clear") == 0) {
+      _callbacks->clearBlacklistStats();
+      strcpy(reply, "OK - blk.stats cleared");
+    } else if (handleBlacklistCommand(command, "sender", _prefs->blk_sender, reply, &changed)) {
+      if (changed) savePrefs();
+    } else if (handleBlacklistCommand(command, "neighbor", _prefs->blk_neighbor, reply, &changed)) {
+      if (changed) savePrefs();
+    } else if (handleBlacklistCommand(command, "channel", _prefs->blk_channel, reply, &changed)) {
+      if (changed) savePrefs();
     } else if (memcmp(command, "tempradio ", 10) == 0) {
       strcpy(tmp, &command[10]);
       const char *parts[5];
@@ -627,7 +736,43 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
       strcpy(reply, "OK");
     } else {
       strcpy(reply, "Error, max 64");
-    } 
+    }
+  } else if (memcmp(config, "flood.response.base ", 20) == 0) {
+    float f = atof(&config[20]);
+    if (f >= 0.0f && f <= 1.0f) {
+      _prefs->flood_response_base = f;
+      savePrefs();
+      strcpy(reply, "OK");
+    } else {
+      strcpy(reply, "Error: range is 0-1");
+    }
+  } else if (memcmp(config, "flood.request.base ", 19) == 0) {
+    float f = atof(&config[19]);
+    if (f >= 0.0f && f <= 1.0f) {
+      _prefs->flood_request_base = f;
+      savePrefs();
+      strcpy(reply, "OK");
+    } else {
+      strcpy(reply, "Error: range is 0-1");
+    }
+  } else if (memcmp(config, "flood.anon.base ", 16) == 0) {
+    float f = atof(&config[16]);
+    if (f >= 0.0f && f <= 1.0f) {
+      _prefs->flood_anon_base = f;
+      savePrefs();
+      strcpy(reply, "OK");
+    } else {
+      strcpy(reply, "Error: range is 0-1");
+    }
+  } else if (memcmp(config, "flood.advert.base ", 18) == 0) {
+    float f = atof(&config[18]);
+    if (f >= 0.0f && f <= 1.0f) {
+      _prefs->flood_advert_base = f;
+      savePrefs();
+      strcpy(reply, "OK");
+    } else {
+      strcpy(reply, "Error: base must be between 0 and 1");
+    }
   } else if (memcmp(config, "direct.txdelay ", 15) == 0) {
     float f = atof(&config[15]);
     if (f >= 0 && f <= 2.0f) {
@@ -807,6 +952,14 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     sprintf(reply, "> %d", (uint32_t)_prefs->flood_max_unscoped);
   } else if (memcmp(config, "flood.max", 9) == 0) {
     sprintf(reply, "> %d", (uint32_t)_prefs->flood_max);
+  } else if (memcmp(config, "flood.response.base", 19) == 0) {
+    sprintf(reply, "> %s", StrHelper::ftoa(_prefs->flood_response_base));
+  } else if (memcmp(config, "flood.request.base", 18) == 0) {
+    sprintf(reply, "> %s", StrHelper::ftoa(_prefs->flood_request_base));
+  } else if (memcmp(config, "flood.anon.base", 15) == 0) {
+    sprintf(reply, "> %s", StrHelper::ftoa(_prefs->flood_anon_base));
+  } else if (memcmp(config, "flood.advert.base", 17) == 0) {
+    sprintf(reply, "> %s", StrHelper::ftoa(_prefs->flood_advert_base));
   } else if (memcmp(config, "direct.txdelay", 14) == 0) {
     sprintf(reply, "> %s", StrHelper::ftoa(_prefs->direct_tx_delay_factor));
   } else if (memcmp(config, "owner.info", 10) == 0) {

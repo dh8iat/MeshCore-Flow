@@ -6,6 +6,8 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 - [Operational](#operational)
 - [Neighbors](#neighbors-repeater-only)
+- [Blacklist Filtering](#blacklist-filtering-repeater-only)
+- [Probabilistic FLOOD Forwarding](#probabilistic-flood-forwarding-repeater-only)
 - [Statistics](#statistics)
 - [Logging](#logging)
 - [Information](#info)
@@ -112,6 +114,132 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 **Usage:** 
 - `discover.neighbors`
+
+---
+
+
+## Blacklist Filtering (Repeater Only)
+
+The repeater can drop forwarded FLOOD packets using three independent blacklists.
+
+- `blk.sender` blocks by one visible sender-prefix byte.
+- `blk.neighbor` blocks by the first byte of the previous RF neighbor/path-hop hash.
+- `blk.channel` blocks by the one-byte group channel hash.
+
+Values are entered as exactly two hexadecimal characters without a `0x` prefix. Matching is case-insensitive.
+
+### Sender blacklist
+**Usage:**
+- `blk.sender.put XX`
+- `blk.sender.remove XX`
+- `blk.sender.clear`
+- `blk.sender`
+
+**Description:** Blocks packets by original sender prefix when the sender is visible without decrypting the payload. This applies to packet types such as `TXT_MSG`, `REQ`, `RESPONSE`, `PATH`, `ADVERT` and `ANON_REQ`.
+
+**Examples:**
+```text
+blk.sender.put A1
+blk.sender.remove A1
+blk.sender
+```
+
+---
+
+### Neighbor blacklist
+**Usage:**
+- `blk.neighbor.put XX`
+- `blk.neighbor.remove XX`
+- `blk.neighbor.clear`
+- `blk.neighbor`
+
+**Description:** Blocks packets by the previous RF neighbor, represented by the first byte of the last path hash entry before the repeater appends itself.
+
+**Examples:**
+```text
+blk.neighbor.put 7F
+blk.neighbor.remove 7F
+blk.neighbor
+```
+
+---
+
+### Channel blacklist
+**Usage:**
+- `blk.channel.put XX`
+- `blk.channel.remove XX`
+- `blk.channel.clear`
+- `blk.channel`
+
+**Description:** Blocks group packets by the visible one-byte group channel hash. This applies to `GRP_TXT` and `GRP_DATA`.
+
+**Examples:**
+```text
+blk.channel.put D9
+blk.channel.remove D9
+blk.channel
+```
+
+---
+
+### Blacklist stats
+**Usage:**
+- `blk.stats`
+- `blk.stats.clear`
+
+**Description:** Shows or clears only the RAM-only blacklist drop counters for `neighbor`, `sender` and `channel`. The counters are also reset on reboot.
+
+---
+
+## Probabilistic FLOOD Forwarding (Repeater Only)
+
+The repeater can reduce FLOOD forwarding probability for selected payload types. These settings are independent from the blacklist filters.
+
+| Command | Payload type | Default | Description |
+|---|---:|---:|---|
+| `set flood.advert.base <0.0..1.0>` | ADVERT | `0.3` | Forwarding probability for advert FLOOD packets |
+| `set flood.response.base <0.0..1.0>` | RESPONSE | `0.8` | Forwarding probability for response FLOOD packets |
+| `set flood.request.base <0.0..1.0>` | REQ | `0.1` | Forwarding probability for request FLOOD packets |
+| `set flood.anon.base <0.0..1.0>` | ANON_REQ | `0.1` | Forwarding probability for anonymous request FLOOD packets |
+
+Current values can be read with:
+
+```text
+get flood.advert.base
+get flood.response.base
+get flood.request.base
+get flood.anon.base
+```
+
+Examples:
+
+```text
+set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+```
+
+Value meaning:
+
+| Value | Behavior |
+|---:|---|
+| `0.0` | Do not forward this payload type |
+| `> 0.0` | First relay is allowed, further relays are forwarded probabilistically |
+| `1.0` | Always forward this payload type |
+
+The probability is applied hop-dependently. For example, a value of `0.5` allows the first relay and then forwards later hops with reduced probability.
+
+Recommended starting values:
+
+```text
+set flood.advert.base 0.308
+set flood.response.base 0.8
+set flood.request.base 0.5
+set flood.anon.base 0.6
+```
+
+Keep `flood.response.base` relatively high if multi-hop replies, ACKs, PATH replies or remote login become unreliable.
 
 ---
 

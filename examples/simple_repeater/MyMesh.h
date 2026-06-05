@@ -55,6 +55,9 @@ struct RepeaterStats {
   uint16_t n_direct_dups, n_flood_dups;
   uint32_t total_rx_air_time_secs;
   uint32_t n_recv_errors;
+  uint32_t n_blk_neighbor;
+  uint32_t n_blk_sender;
+  uint32_t n_blk_channel;
 };
 
 #ifndef MAX_CLIENTS
@@ -128,6 +131,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   mesh::Packet* createSelfAdvert();
 
   File openAppend(const char* fname);
+  uint32_t n_blk_neighbor, n_blk_sender, n_blk_channel;
+  bool isBlacklistBitSet(const uint8_t* bitset, uint8_t value) const;
+  bool isNeighborBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
+  bool isSenderBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
+  bool isChannelBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
   bool isLooped(const mesh::Packet* packet, const uint8_t max_counters[]);
 
 protected:
@@ -214,6 +222,8 @@ public:
   void formatStatsReply(char *reply) override;
   void formatRadioStatsReply(char *reply) override;
   void formatPacketStatsReply(char *reply) override;
+  void formatBlacklistStatsReply(char *reply) override;
+  void clearBlacklistStats() override;
   void startRegionsLoad() override;
   bool saveRegions() override;
   void onDefaultRegionChanged(const RegionEntry* r) override;
