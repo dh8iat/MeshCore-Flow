@@ -171,11 +171,10 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 296
     file.read((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 300
     file.read((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 304
-    file.read((uint8_t *)&_prefs->reserved_308, sizeof(_prefs->reserved_308));                    // 308
-    file.read((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                      // 309
-    file.read((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                          // 341
-    file.read((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                        // 373
-    // next: 405
+    file.read((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                      // 308
+    file.read((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                          // 340
+    file.read((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                        // 372
+    // next: 404
 
     // sanitise bad pref values
     _prefs->rx_delay_base = constrain(_prefs->rx_delay_base, 0, 20.0f);
@@ -275,11 +274,10 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->flood_response_base, sizeof(_prefs->flood_response_base));      // 296
     file.write((uint8_t *)&_prefs->flood_request_base, sizeof(_prefs->flood_request_base));        // 300
     file.write((uint8_t *)&_prefs->flood_anon_base, sizeof(_prefs->flood_anon_base));              // 304
-    file.write((uint8_t *)&_prefs->reserved_308, sizeof(_prefs->reserved_308));                    // 308
-    file.write((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                     // 309
-    file.write((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                         // 341
-    file.write((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                       // 373
-    // next: 405
+    file.write((uint8_t *)_prefs->blk_neighbor, sizeof(_prefs->blk_neighbor));                     // 308
+    file.write((uint8_t *)_prefs->blk_sender, sizeof(_prefs->blk_sender));                         // 340
+    file.write((uint8_t *)_prefs->blk_channel, sizeof(_prefs->blk_channel));                       // 372
+    // next: 404
 
     file.close();
   }

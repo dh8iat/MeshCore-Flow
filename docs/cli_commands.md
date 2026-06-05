@@ -214,7 +214,7 @@ get flood.anon.base
 Examples:
 
 ```text
-set flood.advert.base 0.308
+set flood.advert.base 0.3
 set flood.response.base 0.8
 set flood.request.base 0.5
 set flood.anon.base 0.6
