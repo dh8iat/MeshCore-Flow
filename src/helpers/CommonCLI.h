@@ -40,6 +40,8 @@ struct NodePrefs { // persisted to file
   uint8_t multi_acks;
   float bw;
   uint8_t flood_max;
+  uint8_t flood_max_unscoped;
+  uint8_t flood_max_advert;
   uint8_t interference_threshold;
   uint8_t agc_reset_interval; // secs / 4
   // Bridge settings
@@ -61,12 +63,10 @@ struct NodePrefs { // persisted to file
   uint8_t rx_boosted_gain; // power settings
   uint8_t path_hash_mode;   // which path mode to use when sending
   uint8_t loop_detect;
-  // Base forwarding probability for different flood packet types (0.0 = block, 1.0 = always forward)
+  // Base forwarding probability for selected flood packet types (0.0 = block, 1.0 = always forward).
+  // ADVERT packets are intentionally handled only by flood_max_advert in MeshCore 1.16.
   float flood_response_base;
   float flood_request_base;
-  float flood_anon_base;
-  float flood_advert_base;
-  uint8_t flood_txt_region; // Treat flood TXT_MSG with a region like group flood messages.
   // Bitsets for lightweight repeater forwarding blacklists.
   // Each list accepts exactly one-byte hex values in the CLI. For sender and
   // neighbor checks this byte is used as a prefix, so it also matches longer

@@ -122,26 +122,16 @@ This document provides an overview of CLI commands that can be sent to MeshCore 
 
 The repeater can drop forwarded FLOOD packets using three independent blacklists.
 
-- `blk.sender` supports 1-byte, 2-byte and 3-byte prefix values.
-- `blk.neighbor` supports 1-byte, 2-byte and 3-byte prefix values.
-- `blk.channel` uses 1-byte channel hashes.
+- `blk.sender` blocks by one visible sender-prefix byte.
+- `blk.neighbor` blocks by the first byte of the previous RF neighbor/path-hop hash.
+- `blk.channel` blocks by the one-byte group channel hash.
 
-Values are entered as hexadecimal characters without a `0x` prefix. Matching is case-insensitive.
-
-For `blk.sender` and `blk.neighbor`, prefix matching is used:
-
-- `A1` matches `A1`, `A1B2` and `A1B2C3`
-- `A1B2` matches `A1B2` and `A1B2C3`
-- `A1B2C3` matches only `A1B2C3`
+Values are entered as exactly two hexadecimal characters without a `0x` prefix. Matching is case-insensitive.
 
 ### Sender blacklist
 **Usage:**
 - `blk.sender.put XX`
-- `blk.sender.put XXXX`
-- `blk.sender.put XXXXXX`
 - `blk.sender.remove XX`
-- `blk.sender.remove XXXX`
-- `blk.sender.remove XXXXXX`
 - `blk.sender.clear`
 - `blk.sender`
 
@@ -150,9 +140,7 @@ For `blk.sender` and `blk.neighbor`, prefix matching is used:
 **Examples:**
 ```text
 blk.sender.put A1
-blk.sender.put A1B2
-blk.sender.put A1B2C3
-blk.sender.remove A1B2
+blk.sender.remove A1
 blk.sender
 ```
 
@@ -161,22 +149,16 @@ blk.sender
 ### Neighbor blacklist
 **Usage:**
 - `blk.neighbor.put XX`
-- `blk.neighbor.put XXXX`
-- `blk.neighbor.put XXXXXX`
 - `blk.neighbor.remove XX`
-- `blk.neighbor.remove XXXX`
-- `blk.neighbor.remove XXXXXX`
 - `blk.neighbor.clear`
 - `blk.neighbor`
 
-**Description:** Blocks packets by the previous RF neighbor, represented by the last path hash entry before the repeater appends itself. A shorter entry also matches longer 2-byte or 3-byte path hashes with the same prefix.
+**Description:** Blocks packets by the previous RF neighbor, represented by the first byte of the last path hash entry before the repeater appends itself.
 
 **Examples:**
 ```text
 blk.neighbor.put 7F
-blk.neighbor.put 7F12
-blk.neighbor.put 7F1234
-blk.neighbor.remove 7F12
+blk.neighbor.remove 7F
 blk.neighbor
 ```
 
@@ -189,7 +171,7 @@ blk.neighbor
 - `blk.channel.clear`
 - `blk.channel`
 
-**Description:** Blocks group packets by the visible 1-byte group channel hash. This applies to `GRP_TXT` and `GRP_DATA`.
+**Description:** Blocks group packets by the visible one-byte group channel hash. This applies to `GRP_TXT` and `GRP_DATA`.
 
 **Examples:**
 ```text
@@ -211,31 +193,27 @@ blk.channel
 
 ## Probabilistic FLOOD Forwarding (Repeater Only)
 
-The repeater can reduce FLOOD forwarding probability for selected payload types. These settings are independent from the blacklist filters.
+The repeater can reduce FLOOD forwarding probability for selected request/response payload types. These settings are independent from the blacklist filters.
+
+ADVERT packets are not handled probabilistically in MeshCore-Flow 1.16.0_1.4. They use the official MeshCore 1.16 rule `set flood.max.advert <0..64>`.
 
 | Command | Payload type | Default | Description |
 |---|---:|---:|---|
-| `set flood.advert.base <0.0..1.0>` | ADVERT | `0.308` | Forwarding probability for advert FLOOD packets |
-| `set flood.response.base <0.0..1.0>` | RESPONSE | `1.0` | Forwarding probability for response FLOOD packets |
-| `set flood.request.base <0.0..1.0>` | REQ | `1.0` | Forwarding probability for request FLOOD packets |
-| `set flood.anon.base <0.0..1.0>` | ANON_REQ | `1.0` | Forwarding probability for anonymous request FLOOD packets |
+| `set flood.response.base <0.0..1.0>` | RESPONSE | `0.3` | Forwarding probability for response FLOOD packets |
+| `set flood.req.base <0.0..1.0>` | REQ / ANON_REQ | `0.3` | Forwarding probability for request FLOOD packets |
 
 Current values can be read with:
 
 ```text
-get flood.advert.base
 get flood.response.base
-get flood.request.base
-get flood.anon.base
+get flood.req.base
 ```
 
 Examples:
 
 ```text
-set flood.advert.base 0.308
-set flood.response.base 0.8
-set flood.request.base 0.5
-set flood.anon.base 0.6
+set flood.response.base 0.3
+set flood.req.base 0.3
 ```
 
 Value meaning:
@@ -251,10 +229,11 @@ The probability is applied hop-dependently. For example, a value of `0.5` allows
 Recommended starting values:
 
 ```text
-set flood.advert.base 0.308
-set flood.response.base 0.8
-set flood.request.base 0.5
-set flood.anon.base 0.6
+set flood.max 16
+set flood.max.advert 3
+set flood.response.base 0.3
+set flood.req.base 0.3
+set int.thresh 14
 ```
 
 Keep `flood.response.base` relatively high if multi-hop replies, ACKs, PATH replies or remote login become unreliable.
@@ -370,20 +349,6 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 ---
 
-#### View or change the boosted receive gain mode
-**Usage:**
-- `get radio.rxgain`
-- `set radio.rxgain <state>`
-
-**Parameters:**
-- `state`: `on`|`off`
-
-**Default:** `off`
-
-**Note:** Only available on SX1262 and SX1268 based boards.
-
----
-
 #### Change the radio parameters for a set duration
 **Usage:** 
 - `tempradio <freq>,<bw>,<sf>,<cr>,<timeout_mins>`
@@ -414,7 +379,7 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 ---
 
-#### View or change this node's rx boosted gain mode (SX12xx only, v1.14.1+)
+#### View or change this node's rx boosted gain mode (SX12xx and LR1110, v1.14.1+)
 **Usage:**
 - `get radio.rxgain`
 - `set radio.rxgain <state>`
@@ -533,7 +498,7 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 **Note:** `|` characters are translated to newlines
 
-**Note:** Requires firmware 1.12.+
+**Note:** Requires firmware 1.12+
 
 ---
 
@@ -556,6 +521,11 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 ---
 
+#### View this node's firmware version
+**Usage:** `ver`
+
+---
+
 #### View this node's configured role
 **Usage:** `get role`
 
@@ -571,7 +541,7 @@ The JSON output also includes RAM-only blacklist drop counters:
 - `on`: enable power saving
 - `off`: disable power saving
 
-**Default:** `on`
+**Default:** `off`
 
 **Note:** When enabled, device enters sleep mode between radio transmissions
 
@@ -607,7 +577,7 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 **Note:** the 'path.hash.mode' sets the low-level ID/hash encoding size used when the repeater adverts. This setting has no impact on what packet ID/hash size this repeater forwards, all sizes should be forwarded on firmware >= 1.14. This feature was added in firmware 1.14
 
-**Temporary Note:** adverts with ID/hash sizes of 2 or 3 bytes may have limited flood propogation in your network while this feature is new as v1.13.0 firmware and older will drop packets with multibyte path ID/hashes as only 1-byte hashes are suppored. Consider your install base of firmware >=1.14 has reached a criticality for effective network flooding before implementing higher ID/hash sizes. 
+**Temporary Note:** adverts with ID/hash sizes of 2 or 3 bytes may have limited flood propagation in your network while this feature is new as v1.13.0 firmware and older will drop packets with multibyte path ID/hashes as only 1-byte hashes are supported. Consider your install base of firmware >=1.14 has reached a criticality for effective network flooding before implementing higher ID/hash sizes. 
 
 ---
 
@@ -625,7 +595,7 @@ The JSON output also includes RAM-only blacklist drop counters:
   
 **Default:** `off`
 
-**Note:** When it is enabled, repeaters will now reject flood packets which look like they are in a loop. This has been happening recently in some meshes when there is just a single 'bad' repeater firmware out there (prob some forked or custom firmware). If the payload is messed with, then forwarded, the same packet ends up causing a packet storm, repeated up to the max 64 hops. This feature was added in firmware 1.14
+**Note:** When it is enabled, repeaters will now reject flood packets which look like they are in a loop. This has been happening recently in some meshes when there is just a single 'bad' repeater firmware out there (probably some forked or custom firmware). If the payload is messed with, then forwarded, the same packet ends up causing a packet storm, repeated up to the max 64 hops. This feature was added in firmware 1.14
 
 **Example:** If preference is `loop.detect minimal`, and a 1-byte path size packet is received, the repeater will see if its own ID/hash is already in the path. If it's already encoded 4 times, it will reject the packet.  If the packet uses 2-byte path size, and repeater's own ID/hash is already encoded 2 times, it rejects. If the packet uses 3-byte path size, and the repeater's own ID/hash is already encoded 1 time, it rejects. 
 
@@ -641,6 +611,8 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 **Default:** `0.5`
 
+**Note:** When multiple nearby repeaters all hear the same flood packet, each waits a random amount of time before retransmitting to avoid simultaneous collisions. This factor scales the size of that random window. Higher values reduce collision risk at the cost of added latency. `0` disables the window entirely.
+
 ---
 
 #### View or change the retransmit delay factor for direct traffic
@@ -653,6 +625,8 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 **Default:** `0.2`
 
+**Note:** Same collision-avoidance random window as `txdelay`, but applied to direct (non-flood, routed) traffic. The default is lower because direct packets are addressed to a specific next hop, so far fewer nodes compete to retransmit them.
+
 ---
 
 #### [Experimental] View or change the processing delay for received traffic
@@ -664,6 +638,8 @@ The JSON output also includes RAM-only blacklist drop counters:
 - `value`: Receive delay base (0-20)
 
 **Default:** `0.0`
+
+**Note:** When enabled, repeaters that received a flood packet with a weak signal are held in a delay queue before processing, while those that received it with a strong signal process it immediately. This gives strong-signal paths forwarding priority. By the time weak-signal nodes process their copy, the packet may have already propagated and will be suppressed as a duplicate, reducing redundant retransmissions.
 
 ---
 
@@ -775,6 +751,21 @@ The JSON output also includes RAM-only blacklist drop counters:
 - `value`: Maximum flood hop count (0-64)
 
 **Default:** `64`
+
+---
+
+#### Limit the number of hops for an unscoped flood message
+**Usage:**
+- `get flood.max.unscoped`
+- `set flood.max.unscoped <value>`
+
+**Parameters:**
+- `value`: Maximum flood hop count (0-64) for a packet without a scope (no region set)
+
+**Default:** `0xFF` - indicates it hasn't been set, will track flood.max until it is.
+
+**Note:** An alternative to `region denyf *`, setting `flood.max.unscoped` to a lower value such as `3` would allow for local unscoped messages to propagate, while preventing noisy neighbors from flooding a local region.
+
 
 ---
 
@@ -901,6 +892,47 @@ The JSON output also includes RAM-only blacklist drop counters:
 
 ---
 
+#### Define region hierarchy (single line)
+**Usage:**
+- `region def <token> [<token> ...]`
+
+**Parameters (tokens):** Space-separated. A logical **cursor** starts at the wildcard `*`.
+
+- **`name`** — Create `name` as a child of the current cursor (equivalent to `region put name` with the cursor as parent). Cursor moves to `name`.
+- **`name|jump`** *(or `name,jump`)* — Create `name` as a child of the current cursor, then move the cursor to `jump` (must already exist on the node, or have been created earlier in this command). `jump` is **not** the parent of `name`; use this form to pop back up and start another branch.
+
+**Behavior:** Each created region defaults to flood-allowed (same as `region put`). The reply is the resulting region tree (same format as bare `region`); review it before running `region save` to persist. On error, the reply is `Err - ...` and any regions placed before the failure remain on the node, just like a partial chain of `region put`.
+
+**Existing regions:** `region def` does not clear the existing tree — if a name already exists, its parent is updated to the current cursor; otherwise a new region is created. To start from scratch, `region remove` the unwanted regions first.
+
+**Limits:** Repeater serial accepts one line up to **160 characters**. For larger trees, split across multiple `region def` commands; the cursor resets to `*` between commands, so lead the next command with `child|ancestor` to reposition. Each token splits at most once on `|` — `region def a|b|c|d` is not a flat-list shorthand; see the flat-list example below.
+
+**Example — linear chain** (each token becomes a child of the previous):
+```
+region def a b c d e
+region save
+```
+
+**Example — branched tree** (equivalent to `region put a`, `region put b a`, `region put c b`, `region put d c`, `region put e b`, `region put f e`):
+```
+region def a b c d|b e f
+region save
+```
+
+**Example — error and partial state:**
+```
+region def a b c|nope d
+```
+The reply is `Err - unknown jump: nope`. `a`, `b`, and `c` were placed before the failure; `d` was not. Run `region` to inspect, then re-run with a corrected jump or repair with `region remove` / `region put`.
+
+**Example — flat list** (each region a child of `*`). Use `|*` after each token to pop the cursor back to the root before the next token:
+```
+region def a|* b|* c|* d|* e|* f
+region save
+```
+
+---
+
 #### Remove a region
 **Usage:** 
 - `region remove <name>`
@@ -921,7 +953,7 @@ The JSON output also includes RAM-only blacklist drop counters:
 **Parameters:**
 - `filter`: `allowed`|`denied`
 
-**Note:** Requires firmware 1.12.+
+**Note:** Requires firmware 1.12+
 
 ---
 
@@ -1078,7 +1110,7 @@ region save
 
 ---
 
-#### View or change thevalue of a sensor
+#### View or change the value of a sensor
 **Usage:** 
 - `sensor get <key>`
 - `sensor set <key> <value>`

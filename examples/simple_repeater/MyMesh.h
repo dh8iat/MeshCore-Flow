@@ -76,7 +76,7 @@ struct NeighbourInfo {
 #endif
 
 #ifndef FIRMWARE_VERSION
-  #define FIRMWARE_VERSION   "v1.15.0 FLOW 1.3"
+  #define FIRMWARE_VERSION   "v1.16.0 FLOW 1.4"
 #endif
 
 #define FIRMWARE_ROLE "repeater"
@@ -132,11 +132,11 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 
   File openAppend(const char* fname);
   uint32_t n_blk_neighbor, n_blk_sender, n_blk_channel;
-  bool isLooped(const mesh::Packet* packet, const uint8_t max_counters[]);
   bool isBlacklistBitSet(const uint8_t* bitset, uint8_t value) const;
   bool isNeighborBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
   bool isSenderBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
   bool isChannelBlacklisted(const mesh::Packet* packet, uint8_t* matched) const;
+  bool isLooped(const mesh::Packet* packet, const uint8_t max_counters[]);
 
 protected:
   float getAirtimeBudgetFactor() const override {
