@@ -42,6 +42,14 @@ void RadioLibWrapper::begin() {
   _floor_sample_sum = 0;
 }
 
+uint32_t RadioLibWrapper::getRngSeed() {
+  return _radio->random(0x7FFFFFFF);
+}
+
+void RadioLibWrapper::setTxPower(int8_t dbm) {
+  _radio->setOutputPower(dbm);
+}
+
 void RadioLibWrapper::idle() {
   _radio->standby();
   state = STATE_IDLE;   // need another startReceive()
@@ -170,20 +178,10 @@ void RadioLibWrapper::onSendFinished() {
   state = STATE_IDLE;
 }
 
-int16_t RadioLibWrapper::performChannelScan() {
-  return _radio->scanChannel();
-}
-
 bool RadioLibWrapper::isChannelActive() {
-  if (_threshold == 0) return false;    // interference check is disabled
-
-  int16_t result = performChannelScan();
-  // scanChannel() triggers DIO interrupt (CAD done) which sets STATE_INT_READY
-  // via setFlag() ISR. Clear it before restarting RX so recvRaw() doesn't
-  // try to read a non-existent packet and count a spurious recv error.
-  state = STATE_IDLE;
-  startRecv();
-  return result != RADIOLIB_CHANNEL_FREE;
+  return _threshold == 0 
+          ? false    // interference check is disabled
+          : getCurrentRSSI() > _noise_floor + _threshold;
 }
 
 float RadioLibWrapper::getLastRSSI() const {
