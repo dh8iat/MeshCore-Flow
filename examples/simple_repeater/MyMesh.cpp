@@ -417,6 +417,7 @@ bool MyMesh::isLooped(const mesh::Packet* packet, const uint8_t max_counters[]) 
   return n >= max_counters[hash_size];
 }
 
+
 bool MyMesh::isBlacklistBitSet(const uint8_t* bitset, uint8_t value) const {
   return (bitset[value >> 3] & (1 << (value & 7))) != 0;
 }
@@ -498,6 +499,16 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
   if (_prefs.disable_fwd) return false;
 
   if (packet->isRouteFlood()) {
+    // Keep the official MeshCore 1.16 forwarding rules first.
+    if (packet->getPathHashCount() >= _prefs.flood_max) return false;
+    if (packet->getRouteType() == ROUTE_TYPE_FLOOD && packet->getPathHashCount() >= _prefs.flood_max_unscoped) return false;
+    if (packet->getPayloadType() == PAYLOAD_TYPE_ADVERT && packet->getPathHashCount() >= _prefs.flood_max_advert) return false;
+    if (recv_pkt_region == NULL) {
+      MESH_DEBUG_PRINTLN("allowPacketForward: unknown transport code, or wildcard not allowed for FLOOD packet");
+      return false;
+    }
+
+    // FLOW blacklist filtering as an additional hard-drop rule.
     uint8_t blocked = 0;
     if (isNeighborBlacklisted(packet, &blocked)) {
       n_blk_neighbor++;
@@ -515,48 +526,25 @@ bool MyMesh::allowPacketForward(const mesh::Packet *packet) {
       return false;
     }
 
+    // Optional probabilistic forwarding for REQ, ANON_REQ and RESPONSE only.
+    // ADVERT packets are intentionally handled only by flood_max_advert.
     uint8_t payload_type = packet->getPayloadType();
-
-    // With wildcard denyf, group flood payloads are hard-blocked.
-    // Optional: regional flood TXT_MSG can use the same region rules as group messages.
-    bool region_limited_payload =
-        payload_type == PAYLOAD_TYPE_GRP_TXT ||
-        payload_type == PAYLOAD_TYPE_GRP_DATA ||
-        (_prefs.flood_txt_region &&
-         payload_type == PAYLOAD_TYPE_TXT_MSG);
-
-    if (recv_pkt_region == NULL && region_limited_payload) {
-      MESH_DEBUG_PRINTLN("allowPacketForward: wildcard denyf blocked regional FLOOD packet");
-      return false;
-    }
-
-    // A base of 0.0 means hard block for that payload type. Otherwise forwarding is
-    // reduced hop-dependently using P(h) = base^(hops-1) principle.
     uint8_t hops = packet->getPathHashCount();
     uint8_t exponent = hops > 0 ? hops - 1 : 0;
 
     switch (payload_type) {
-      case PAYLOAD_TYPE_ADVERT:
-        if (_prefs.flood_advert_base <= 0.0f) return false;
-        if (probabilisticDrop(getRNG(), pow(_prefs.flood_advert_base, exponent))) return false;
-        break;
       case PAYLOAD_TYPE_RESPONSE:
         if (_prefs.flood_response_base <= 0.0f) return false;
         if (probabilisticDrop(getRNG(), pow(_prefs.flood_response_base, exponent))) return false;
         break;
       case PAYLOAD_TYPE_REQ:
+      case PAYLOAD_TYPE_ANON_REQ:
         if (_prefs.flood_request_base <= 0.0f) return false;
         if (probabilisticDrop(getRNG(), pow(_prefs.flood_request_base, exponent))) return false;
-        break;
-      case PAYLOAD_TYPE_ANON_REQ:
-        if (_prefs.flood_anon_base <= 0.0f) return false;
-        if (probabilisticDrop(getRNG(), pow(_prefs.flood_anon_base, exponent))) return false;
         break;
       default:
         break;
     }
-
-    if (packet->getPathHashCount() >= _prefs.flood_max) return false;
 
     if (_prefs.loop_detect != LOOP_DETECT_OFF) {
       const uint8_t* maximums;
@@ -677,15 +665,7 @@ bool MyMesh::filterRecvFloodPacket(mesh::Packet* pkt) {
   if (pkt->getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD) {
     recv_pkt_region = region_map.findMatch(pkt, REGION_DENY_FLOOD);
   } else if (pkt->getRouteType() == ROUTE_TYPE_FLOOD) {
-    // denyf-* policy for this build:
-    // hard-block group flood payloads, plus TXT_MSG when enabled by CLI.
-    // ADVERT, REQ, RESPONSE and ANON_REQ are handled by probabilistic forwarding.
-    bool region_limited_payload =
-        pkt->getPayloadType() == PAYLOAD_TYPE_GRP_TXT ||
-        pkt->getPayloadType() == PAYLOAD_TYPE_GRP_DATA ||
-        (_prefs.flood_txt_region && pkt->getPayloadType() == PAYLOAD_TYPE_TXT_MSG);
-
-    if (region_limited_payload && region_map.getWildcard().flags & REGION_DENY_FLOOD) {
+    if (region_map.getWildcard().flags & REGION_DENY_FLOOD) {
       recv_pkt_region = NULL;
     } else {
       recv_pkt_region =  &region_map.getWildcard();
@@ -770,7 +750,7 @@ void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len); // chain to super impl
 
   // if this a zero hop advert (and not via 'Share'), add it to neighbours
-  if (packet->path_len == 0 && !isShare(packet)) {
+  if (packet->getPathHashCount() == 0 && !isShare(packet)) {
     AdvertDataParser parser(app_data, app_data_len);
     if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) { // just keep neigbouring Repeaters
       putNeighbour(id, timestamp, packet->getSNR());
@@ -1021,15 +1001,16 @@ MyMesh::MyMesh(mesh::MainBoard &board, mesh::Radio &radio, mesh::MillisecondCloc
   _prefs.bw = LORA_BW;
   _prefs.cr = LORA_CR;
   _prefs.tx_power_dbm = LORA_TX_POWER;
-  _prefs.advert_interval = 240;        // default to 240 minutes for NEW installs
-  _prefs.flood_advert_interval = 0; // no flood advert
-  _prefs.flood_max = 16;
-  _prefs.interference_threshold = 1; // non-zero enables hardware CAD before TX
-  // Default forwarding probability for different FLOOD packet types (0.0 = block, 1.0 = always forward)
-  _prefs.flood_response_base = 0.8f;
-  _prefs.flood_request_base = 0.1f;
-  _prefs.flood_anon_base = 0.1f;
-  _prefs.flood_advert_base = 0.3f;
+  _prefs.advert_interval = 1;        // default to 2 minutes for NEW installs
+  _prefs.flood_advert_interval = 47; // 47 hours
+  _prefs.flood_max = 64;
+  _prefs.flood_max_unscoped = 64;
+  _prefs.flood_max_advert = 8;
+  // Default forwarding probability for REQ/ANON_REQ and RESPONSE (0.0 = block, 1.0 = always forward).
+  _prefs.flood_request_base = 0.3f;
+  _prefs.flood_response_base = 0.3f;
+  _prefs.interference_threshold = 0; // disabled
+
   // bridge defaults
   _prefs.bridge_enabled = 1;    // enabled
   _prefs.bridge_delay   = 500;  // milliseconds
@@ -1095,8 +1076,8 @@ void MyMesh::begin(FILESYSTEM *fs) {
   }
 #endif
 
-  radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
-  radio_set_tx_power(_prefs.tx_power_dbm);
+  radio_driver.setParams(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+  radio_driver.setTxPower(_prefs.tx_power_dbm);
 
   radio_driver.setRxBoostedGainMode(_prefs.rx_boosted_gain);
   MESH_DEBUG_PRINTLN("RX Boosted Gain Mode: %s",
@@ -1192,7 +1173,7 @@ void MyMesh::dumpLogFile() {
 }
 
 void MyMesh::setTxPower(int8_t power_dbm) {
-  radio_set_tx_power(power_dbm);
+  radio_driver.setTxPower(power_dbm);
 }
 
 #if defined(USE_SX1262) || defined(USE_SX1268)
@@ -1443,13 +1424,13 @@ void MyMesh::loop() {
 
   if (set_radio_at && millisHasNowPassed(set_radio_at)) { // apply pending (temporary) radio params
     set_radio_at = 0;                                     // clear timer
-    radio_set_params(pending_freq, pending_bw, pending_sf, pending_cr);
+    radio_driver.setParams(pending_freq, pending_bw, pending_sf, pending_cr);
     MESH_DEBUG_PRINTLN("Temp radio params");
   }
 
   if (revert_radio_at && millisHasNowPassed(revert_radio_at)) { // revert radio params to orig
     revert_radio_at = 0;                                        // clear timer
-    radio_set_params(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
+    radio_driver.setParams(_prefs.freq, _prefs.bw, _prefs.sf, _prefs.cr);
     MESH_DEBUG_PRINTLN("Radio params restored");
   }
 

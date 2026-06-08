@@ -6,25 +6,19 @@ Status: integrated and extended
 Topic:
 - Probabilistic FLOOD forwarding
 
-Integrated / adapted:
+Integrated / adapted for MeshCore-Flow 1.16.0_1.4:
 - probabilistic forwarding for:
-  - ADVERT
   - RESPONSE
   - REQ
   - ANON_REQ
 - configurable CLI parameters:
-  - flood.advert.base
   - flood.response.base
-  - flood.request.base
-  - flood.anon.base
+  - flood.req.base
 
-MeshCore-Flow changes:
-- `* denyf` no longer hard-blocks all FLOOD packets
-- only:
-  - GRP_TXT
-  - GRP_DATA
-  are hard-blocked
-- ADVERT / RESPONSE / REQ / ANON_REQ are now controlled probabilistically
+MeshCore-Flow 1.16.0_1.4 changes:
+- official MeshCore 1.16.0 FLOOD, region, denyf and TRANSPORT_FLOOD behavior is kept
+- ADVERT packets are not handled probabilistically and use the official flood.max.advert rule
+- RESPONSE / REQ / ANON_REQ can be controlled probabilistically
 
 Notes:
 - designed to preserve:
@@ -78,21 +72,17 @@ Behavior:
 - 1.0  = always forward
 - >0.0 = first hop always, then probabilistic
 
-Recommended defaults:
-- flood.advert.base   = 0.308
-- flood.response.base = 0.8
-- flood.request.base  = 0.5
-- flood.anon.base     = 0.6
+Recommended repeater settings:
+- flood.max.advert    = 3
+- flood.response.base = 0.3
+- flood.req.base      = 0.3
 
 ---
 
 # Ideas / Future Work
 
-- dynamic repeater behavior
 - Gastzugang einschränken
-- blacklist für benachbarte repeater
-- blacklist für #Channels
-- blacklist für Absender
+- blacklist für Absender von grp_txt
 
 
 ---
@@ -115,7 +105,7 @@ Status:
 ---
 
 # Interesting PRs
-- PR2553: exponentielle Reduktion von Flood-Adverts per Hopcount, neue CLI-Option flood.advert.base. Sehr relevant, wenn meshcore-flow Airtime sparen soll.
+- PR2553: exponentielle Reduktion von Flood-Adverts per Hopcount. In MeshCore-Flow 1.16.0_1.4 this is covered by the official flood.max.advert rule, not by a separate flood.advert.base setting.
 - PR2545: adaptiver Advert-Rate-Limiter gegen Fake-/Spam-Adverts, inkl. Stats-Befehl stats-advert-ratelimit. Für meshcore-flow fast direkt übernehmbar.
 - PR1374: Repeaters sollen nicht mehr automatisch Flood-Adverts senden, sondern auf Anfrage vollständige Metadaten liefern.
 - PR2341 zusammen mit PR2408: advert.max.hops     → Advertisements begrenzen, flood.path.max      → REQ/RESPONSE/PATH begrenzen
