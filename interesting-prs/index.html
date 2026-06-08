@@ -766,24 +766,18 @@
 <p>Status: integrated and extended</p>
 <p>Topic:
 - Probabilistic FLOOD forwarding</p>
-<p>Integrated / adapted:
+<p>Integrated / adapted for MeshCore-Flow 1.16.0_1.4:
 - probabilistic forwarding for:
-  - ADVERT
   - RESPONSE
   - REQ
   - ANON_REQ
 - configurable CLI parameters:
-  - flood.advert.base
   - flood.response.base
-  - flood.request.base
-  - flood.anon.base</p>
-<p>MeshCore-Flow changes:
-- <code>* denyf</code> no longer hard-blocks all FLOOD packets
-- only:
-  - GRP_TXT
-  - GRP_DATA
-  are hard-blocked
-- ADVERT / RESPONSE / REQ / ANON_REQ are now controlled probabilistically</p>
+  - flood.req.base</p>
+<p>MeshCore-Flow 1.16.0_1.4 changes:
+- official MeshCore 1.16.0 FLOOD, region, denyf and TRANSPORT_FLOOD behavior is kept
+- ADVERT packets are not handled probabilistically and use the official flood.max.advert rule
+- RESPONSE / REQ / ANON_REQ can be controlled probabilistically</p>
 <p>Notes:
 - designed to preserve:
   - DM return paths
@@ -823,19 +817,15 @@
 - 0.0  = hard block
 - 1.0  = always forward
 - &gt;0.0 = first hop always, then probabilistic</p>
-<p>Recommended defaults:
-- flood.advert.base   = 0.308
-- flood.response.base = 0.8
-- flood.request.base  = 0.5
-- flood.anon.base     = 0.6</p>
+<p>Recommended repeater settings:
+- flood.max.advert    = 3
+- flood.response.base = 0.3
+- flood.req.base      = 0.3</p>
 <hr />
 <h1 id="ideas-future-work">Ideas / Future Work</h1>
 <ul>
-<li>dynamic repeater behavior</li>
 <li>Gastzugang einschränken</li>
-<li>blacklist für benachbarte repeater</li>
-<li>blacklist für #Channels</li>
-<li>blacklist für Absender</li>
+<li>blacklist für Absender von grp_txt</li>
 </ul>
 <hr />
 <h1 id="hardware-notes">Hardware Notes</h1>
@@ -853,7 +843,7 @@
 <hr />
 <h1 id="interesting-prs">Interesting PRs</h1>
 <ul>
-<li>PR2553: exponentielle Reduktion von Flood-Adverts per Hopcount, neue CLI-Option flood.advert.base. Sehr relevant, wenn meshcore-flow Airtime sparen soll.</li>
+<li>PR2553: exponentielle Reduktion von Flood-Adverts per Hopcount. In MeshCore-Flow 1.16.0_1.4 this is covered by the official flood.max.advert rule, not by a separate flood.advert.base setting.</li>
 <li>PR2545: adaptiver Advert-Rate-Limiter gegen Fake-/Spam-Adverts, inkl. Stats-Befehl stats-advert-ratelimit. Für meshcore-flow fast direkt übernehmbar.</li>
 <li>PR1374: Repeaters sollen nicht mehr automatisch Flood-Adverts senden, sondern auf Anfrage vollständige Metadaten liefern.</li>
 <li>PR2341 zusammen mit PR2408: advert.max.hops     → Advertisements begrenzen, flood.path.max      → REQ/RESPONSE/PATH begrenzen</li>
