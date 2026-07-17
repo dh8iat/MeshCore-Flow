@@ -1,4 +1,5 @@
 #include "Dispatcher.h"
+#include "packettap/PacketTap.h"
 
 #if MESH_PACKET_LOGGING
   #include <Arduino.h>
@@ -195,7 +196,16 @@ void Dispatcher::checkRecv() {
     uint8_t raw[MAX_TRANS_UNIT+1];
     int len = _radio->recvRaw(raw, MAX_TRANS_UNIT);
     if (len > 0) {
-      logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
+
+    PacketTap::instance().capture(
+        raw,
+        static_cast<uint16_t>(len),
+        static_cast<int16_t>(_radio->getLastRSSI()),
+        static_cast<int16_t>(_radio->getLastSNR() * 10.0f),
+        _ms->getMillis()
+    );
+
+    logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
 
       pkt = _mgr->allocNew();
       if (pkt == NULL) {

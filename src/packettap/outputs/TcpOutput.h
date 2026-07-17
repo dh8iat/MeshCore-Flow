@@ -22,7 +22,7 @@ public:
     static TcpOutput& instance();
     void begin();
     void loop();
-    bool ready() const;
+    bool ready();
     bool send(const PacketFrame& frame);
 
 private:

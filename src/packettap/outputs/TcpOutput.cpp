@@ -39,7 +39,7 @@ void TcpOutput::loop() {
     }
 }
 
-bool TcpOutput::ready() const {
+bool TcpOutput::ready() {
     return WiFi.status() == WL_CONNECTED && client_.connected();
 }
 

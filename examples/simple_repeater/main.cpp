@@ -2,6 +2,7 @@
 #include <Mesh.h>
 
 #include "MyMesh.h"
+#include "packettap/PacketTap.h"
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
@@ -95,6 +96,8 @@ void setup() {
 
   the_mesh.begin(fs);
 
+  PacketTap::instance().begin();
+
 #ifdef DISPLAY_CLASS
   ui_task.begin(the_mesh.getNodePrefs(), FIRMWARE_BUILD_DATE, FIRMWARE_VERSION);
 #endif
@@ -148,6 +151,7 @@ void loop() {
 #endif
 
   the_mesh.loop();
+  PacketTap::instance().loop();
   sensors.loop();
 #ifdef DISPLAY_CLASS
   ui_task.loop();
