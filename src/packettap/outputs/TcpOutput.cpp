@@ -26,11 +26,35 @@ TcpOutput& TcpOutput::instance() {
 }
 
 void TcpOutput::begin() {
-    WiFi.mode(WIFI_STA);
-    connectWifi();
+    // PacketTap starts disabled. Do not touch Wi-Fi or TCP during boot.
+}
+
+void TcpOutput::setEnabled(bool enabled) {
+    if (enabled_ == enabled) {
+        return;
+    }
+
+    enabled_ = enabled;
+
+    if (!enabled_) {
+        // Close only PacketTap's TCP socket. Wi-Fi may be shared with OTA or Companion.
+        disconnectTcp();
+        return;
+    }
+
+    nextWifiAttemptMs_ = 0;
+    nextTcpAttemptMs_ = 0;
+}
+
+bool TcpOutput::isEnabled() const {
+    return enabled_;
 }
 
 void TcpOutput::loop() {
+    if (!enabled_) {
+        return;
+    }
+
     if (WiFi.status() != WL_CONNECTED) {
         disconnectTcp();
 
@@ -53,7 +77,7 @@ void TcpOutput::loop() {
 }
 
 bool TcpOutput::ready() {
-    return WiFi.status() == WL_CONNECTED && client_.connected();
+    return enabled_ && WiFi.status() == WL_CONNECTED && client_.connected();
 }
 
 bool TcpOutput::send(const PacketFrame& frame) {
@@ -121,7 +145,7 @@ bool TcpOutput::send(const PacketFrame& frame) {
 void TcpOutput::connectWifi() {
     nextWifiAttemptMs_ = millis() + WifiRetryMs;
 
-    if (PACKETTAP_WIFI_SSID[0] == '\0') {
+    if (!enabled_ || PACKETTAP_WIFI_SSID[0] == '\0') {
         return;
     }
 
@@ -129,6 +153,7 @@ void TcpOutput::connectWifi() {
         return;
     }
 
+    WiFi.mode(WIFI_STA);
     WiFi.begin(
         PACKETTAP_WIFI_SSID,
         PACKETTAP_WIFI_PASSWORD
@@ -138,7 +163,7 @@ void TcpOutput::connectWifi() {
 void TcpOutput::connectTcp() {
     nextTcpAttemptMs_ = millis() + TcpRetryMs;
 
-    if (PACKETTAP_TCP_HOST[0] == '\0') {
+    if (!enabled_ || PACKETTAP_TCP_HOST[0] == '\0') {
         return;
     }
 
@@ -160,7 +185,7 @@ bool TcpOutput::writeAll(
     const uint8_t* data,
     size_t length
 ) {
-    if (!client_.connected()) {
+    if (!enabled_ || !client_.connected()) {
         return false;
     }
 

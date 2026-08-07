@@ -1,4 +1,5 @@
 #include "MyMesh.h"
+#include "packettap/PacketTap.h"
 #include <algorithm>
 #include <math.h>
 
@@ -1396,6 +1397,16 @@ void MyMesh::handleCommand(uint32_t sender_timestamp, char *command, char *reply
       sendNodeDiscoverReq();
       strcpy(reply, "OK - Discover sent");
     }
+  } else if (strcmp(command, "packettap on") == 0) {
+    PacketTap::instance().setEnabled(true);
+    strcpy(reply, "OK - PacketTap enabled");
+  } else if (strcmp(command, "packettap off") == 0) {
+    PacketTap::instance().setEnabled(false);
+    strcpy(reply, "OK - PacketTap disabled");
+  } else if (strcmp(command, "packettap") == 0 || strcmp(command, "packettap status") == 0) {
+    sprintf(reply, "PacketTap: %s", PacketTap::instance().isEnabled() ? "on" : "off");
+  } else if (memcmp(command, "packettap", 9) == 0) {
+    strcpy(reply, "Err - use: packettap on|off|status");
   } else{
     _cli.handleCommand(sender_timestamp, command, reply);  // common CLI commands
   }
