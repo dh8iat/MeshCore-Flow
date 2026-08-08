@@ -3,6 +3,7 @@
 
 #include "MyMesh.h"
 #include "packettap/PacketTap.h"
+#include "packettap/outputs/TcpOutput.h"
 
 #ifdef DISPLAY_CLASS
   #include "UITask.h"
@@ -95,6 +96,16 @@ void setup() {
   sensors.begin();
 
   the_mesh.begin(fs);
+
+  TcpOutput::instance().setReceiverIdentity(
+    the_mesh.self_id.pub_key,
+    PUB_KEY_SIZE,
+    the_mesh.getNodeName(),
+    "heltec_v4",
+    the_mesh.getFirmwareVer(),
+    the_mesh.getBuildDate(),
+    the_mesh.getRole()
+  );
 
   PacketTap::instance().begin();
 
